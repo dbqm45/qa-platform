@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "login.successful-login.full.staging",
+  "specification_id": "login.successful-login",
+  "mode": "full",
+  "category": "functional",
+  "environment": "staging",
+  "adapters": [
+    "playwright",
+    "httpx"
+  ],
+  "dependencies": [
+    {
+      "name": "api",
+      "mode": "real"
+    }
+  ],
+  "settings": {
+    "timeout_seconds": 600.0,
+    "step_timeout_seconds": 30.0,
+    "fail_fast": false
+  }
+}

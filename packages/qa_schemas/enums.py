@@ -74,3 +74,23 @@ class TestCategory(StrEnum):
     PERFORMANCE = "performance"
     SECURITY = "security"
     CONTRACT = "contract"
+
+
+@unique
+class StepKind(StrEnum):
+    """Role of a step in a test case, independent of the source format (TASK-008).
+
+    Gherkin mapping: Given -> PRECONDITION, When -> ACTION, Then -> EXPECTATION.
+    """
+
+    PRECONDITION = "precondition"
+    ACTION = "action"
+    EXPECTATION = "expectation"
+
+
+@unique
+class DependencyMode(StrEnum):
+    """How an external dependency is provided during execution (TASK-009)."""
+
+    REAL = "real"
+    MOCK = "mock"

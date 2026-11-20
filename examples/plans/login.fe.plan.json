@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "login.successful-login.fe.local",
+  "specification_id": "login.successful-login",
+  "mode": "fe",
+  "category": "functional",
+  "environment": "local",
+  "adapters": [
+    "playwright"
+  ],
+  "dependencies": [
+    {
+      "name": "api",
+      "mode": "mock"
+    }
+  ],
+  "settings": {
+    "timeout_seconds": 120.0,
+    "step_timeout_seconds": 10.0,
+    "fail_fast": true
+  }
+}

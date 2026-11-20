@@ -56,6 +56,8 @@ module defines an enum containing a status value.
 | `ExecutionStatus` | `pending`, `running`, `passed`, `failed`, `error`, `cancelled` | Lifecycle of an execution or test result. All except `pending`/`running` are terminal. |
 | `ExecutionMode` | `fe`, `be`, `full`, `contract` | Which parts of the system are exercised. |
 | `TestCategory` | `functional`, `visual`, `accessibility`, `performance`, `security`, `contract` | What quality is verified. Independent of mode. |
+| `StepKind` | `precondition`, `action`, `expectation` | Role of a step (Gherkin Given / When / Then). |
+| `DependencyMode` | `real`, `mock` | How an external service is provided. |
 
 ### ADR-002: Two status enums instead of one (TASK-007)
 
@@ -86,7 +88,47 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | Module | Models |
 |--------|--------|
 | `qa_schemas.project` | `Project`, `Repository`, `Environment` |
+| `qa_schemas.specification` | `TestSpecification`, `TestCase`, `Step`, `ScenarioSource`, `SpecificationMetadata` |
+| `qa_schemas.plan` | `ExecutionPlan`, `ExecutionSettings`, `Dependency` |
 
 `Project` validates cross-references: repository and environment names are
 unique, and `default_environment` must name a defined environment.
 Secrets and environment variables are added in TASK-055.
+
+## Test Specification vs Execution Plan (TASK-008, TASK-009)
+
+```
+TestSpecification (what to verify)          ExecutionPlan (how / where)
+  schema_version: 1                            schema_version: 1
+  id ◄──────────────────────────────────────── specification_id
+  source: path, feature, scenario,             mode, category, environment
+          line, content_hash                   adapters, dependencies
+  test_cases[]: id, name, steps[], parameters  settings: timeouts, fail_fast
+  required_capabilities, metadata
+```
+
+Samples: `examples/specifications/login.spec.json` and two plans for it in
+`examples/plans/` (FULL on staging, FE locally with a mocked API). Unit tests
+assert the samples are byte-identical to what the models serialize, so any
+format change must update them.
+
+### ADR-004: Steps as one ordered list with a kind
+
+A test case keeps all steps (including Background) in source order, each with
+a `kind`. `preconditions`, `actions` and `expected_results` are derived views.
+Separate lists would lose ordering for scenarios that interleave When/Then.
+A step stores only its keyword, text and line; normalized action and
+parameters are added in TASK-024.
+
+### ADR-005: Plans reference specifications by id
+
+An Execution Plan stores `specification_id`, not a copy of the specification.
+One specification can have many plans, and each validates on its own.
+Whether mode, adapters, capabilities and environment fit together is checked
+during plan generation (TASK-050), not by the schema.
+
+### ADR-006: Integer schema versions
+
+Both documents carry `schema_version` (currently `1`) as their first field.
+Any other value is rejected. The version is bumped on incompatible changes;
+migrations are added when a second version exists.

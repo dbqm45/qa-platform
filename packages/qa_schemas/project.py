@@ -1,17 +1,11 @@
 """Project-level domain models: Project, Repository, Environment (TASK-006)."""
 
-from collections import Counter
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated, Self
 
 from pydantic import Field, PositiveFloat, model_validator
 
-from qa_schemas.base import Identifier, NonEmptyStr, SafeHttpUrl, SchemaModel
-
-
-def _duplicates(names: Iterable[str]) -> list[str]:
-    return sorted(name for name, count in Counter(names).items() if count > 1)
+from qa_schemas.base import Identifier, NonEmptyStr, SafeHttpUrl, SchemaModel, find_duplicates
 
 
 class Repository(SchemaModel):
@@ -55,9 +49,9 @@ class Project(SchemaModel):
 
     @model_validator(mode="after")
     def _check_references(self) -> Self:
-        if dup := _duplicates(r.name for r in self.repositories):
+        if dup := find_duplicates(r.name for r in self.repositories):
             raise ValueError(f"duplicate repository names: {dup}")
-        if dup := _duplicates(e.name for e in self.environments):
+        if dup := find_duplicates(e.name for e in self.environments):
             raise ValueError(f"duplicate environment names: {dup}")
         if (
             self.default_environment is not None

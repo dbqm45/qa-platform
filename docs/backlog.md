@@ -28,9 +28,11 @@
 | TASK-004 | Done |
 | TASK-005 | Done |
 | TASK-007 | Done |
-| TASK-010 | Done — storing the mode in the Execution Plan is verified in TASK-009 |
+| TASK-010 | Done |
 | TASK-011 | Done |
-| TASK-006 | In progress — part 1 done (Project, Repository, Environment) |
+| TASK-006 | In progress — Project, Repository, Environment, TestCase, TestSpecification, ExecutionPlan done; Scenario (TASK-019), TestExecution and TestResult (TASK-057) remain |
+| TASK-008 | Done |
+| TASK-009 | Done |
 
 ---
 

@@ -1,5 +1,7 @@
 """Shared building blocks for all platform schemas."""
 
+from collections import Counter
+from collections.abc import Iterable
 from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, HttpUrl, StringConstraints
@@ -33,3 +35,14 @@ def _reject_credentials(url: HttpUrl) -> HttpUrl:
 
 SafeHttpUrl = Annotated[HttpUrl, AfterValidator(_reject_credentials)]
 """HTTP(S) URL that cannot carry embedded credentials (``https://user:token@host``)."""
+
+StableId = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-z0-9][a-z0-9_.:-]{0,199}$"),
+]
+"""Deterministic identifier of generated artifacts, e.g. ``login.successful-login``."""
+
+
+def find_duplicates(values: Iterable[str]) -> list[str]:
+    """Return the values that occur more than once, sorted."""
+    return sorted(value for value, count in Counter(values).items() if count > 1)
