@@ -44,6 +44,25 @@ uv sync --locked
 
 Always commit `pyproject.toml` and `uv.lock` together.
 
+## Code quality
+
+All tools are configured in `pyproject.toml`.
+
+| Check | Command |
+|-------|---------|
+| Lint | `uv run ruff check .` |
+| Lint and auto-fix | `uv run ruff check --fix .` |
+| Format | `uv run ruff format .` |
+| Verify formatting | `uv run ruff format --check .` |
+| Type check (strict) | `uv run mypy` |
+| Tests | `uv run pytest` |
+
+Run everything before committing:
+
+```bash
+uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
+```
+
 ## Roadmap
 
 The full task backlog lives in [`docs/backlog.md`](docs/backlog.md).

@@ -16,3 +16,39 @@ dev = [
 [tool.uv]
 # No build backend yet — packages are added in TASK-004.
 package = false
+
+# --- Ruff: linting and formatting -----------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["apps", "packages", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# --- mypy: static type checking -------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["tests"]
+warn_unreachable = true
+pretty = true
+
+# --- pytest ---------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.3"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
