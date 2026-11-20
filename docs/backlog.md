@@ -27,6 +27,9 @@
 | TASK-003 | Done |
 | TASK-004 | Done |
 | TASK-005 | Done |
+| TASK-007 | Done |
+| TASK-010 | Done — storing the mode in the Execution Plan is verified in TASK-009 |
+| TASK-011 | Done |
 
 ---
 

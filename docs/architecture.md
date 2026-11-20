@@ -43,3 +43,32 @@ hatchling, rather than as a uv workspace with one `pyproject.toml` per package.
   not by the packaging tool.
 - **Revisit when:** a package needs to be released or deployed separately
   (e.g. remote runners in the post-MVP backlog).
+
+## Shared vocabulary (`qa_schemas.enums`)
+
+All status, mode and category values are defined once, in
+`packages/qa_schemas/enums.py`. A unit test fails if any other platform
+module defines an enum containing a status value.
+
+| Enum | Values | Used for |
+|------|--------|----------|
+| `CompilationStatus` | `ready`, `needs_review`, `blocked`, `unsupported` | Result of compiling a scenario. Only `ready` is executable. |
+| `ExecutionStatus` | `pending`, `running`, `passed`, `failed`, `error`, `cancelled` | Lifecycle of an execution or test result. All except `pending`/`running` are terminal. |
+| `ExecutionMode` | `fe`, `be`, `full`, `contract` | Which parts of the system are exercised. |
+| `TestCategory` | `functional`, `visual`, `accessibility`, `performance`, `security`, `contract` | What quality is verified. Independent of mode. |
+
+### ADR-002: Two status enums instead of one (TASK-007)
+
+The ten statuses from TASK-007 are split into `CompilationStatus` and
+`ExecutionStatus`. They describe different lifecycles, and separate types let
+the type checker reject e.g. an execution marked `ready`.
+
+### ADR-003: Lowercase string values (TASK-007/010/011)
+
+Members are `StrEnum`s with uppercase names and lowercase values
+(`ExecutionMode.FULL == "full"`). Values match YAML/JSON conventions and CLI
+arguments. Parsing is case-sensitive; normalising user input is the caller's job.
+
+Note: because they are `StrEnum`s, `ExecutionMode.CONTRACT == TestCategory.CONTRACT`
+is `True` at runtime. mypy (strict) flags such cross-type comparisons; always
+compare against members of the same enum.
