@@ -59,6 +59,7 @@ module defines an enum containing a status value.
 | `StepKind` | `precondition`, `action`, `expectation` | Role of a step (Gherkin Given / When / Then). |
 | `DependencyMode` | `real`, `mock` | How an external service is provided. |
 | `ScenarioFormat` | `gherkin` | Format of a scenario document; selects the parser. |
+| `StepKeywordType` | `context`, `action`, `outcome`, `conjunction`, `unknown` | Gherkin keyword type, language independent. |
 
 ### ADR-002: Two status enums instead of one (TASK-007)
 
@@ -93,7 +94,7 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | `qa_schemas.plan` | `ExecutionPlan`, `ExecutionSettings`, `Dependency` |
 | `qa_schemas.config` | `ProjectConfig` (root of `qa.yaml`) |
 | `qa_schemas.execution` | `TestExecution` |
-| `qa_schemas.scenario` | `ScenarioDocument` (raw, unparsed scenario input) |
+| `qa_schemas.scenario` | `ScenarioDocument` (raw input); `ParseResult`, `ParsedFeature`, `Scenario`, `ScenarioStep`, `Examples`, `ParseIssue` |
 
 `Project` validates cross-references: repository and environment names are
 unique, and `default_environment` must name a defined environment.
@@ -244,3 +245,39 @@ The backlog lists Markdown as an initial source type, but no Markdown scenario
 format is defined and there is no parser for it. Discovering `.md` files would
 pick up every README in a scenario directory. Supporting it later means adding
 a `ScenarioFormat` value, a suffix in `FORMAT_BY_SUFFIX` and a parser.
+
+## Gherkin parsing (TASK-019)
+
+`qa_core.scenarios.parsing.parse_document()` picks a parser from `PARSERS` by
+`document.format`. The Gherkin parser (`qa_core.scenarios.gherkin`) uses the
+official Cucumber parser (`gherkin-official`) and converts its AST into
+platform models, so nothing downstream depends on the library.
+
+```
+ParseResult
+  feature: ParsedFeature | None        (None on syntax errors or an empty file)
+    path, content_hash, language, name, tags, description, line
+    scenarios: Scenario[]              (source order, including those inside Rules)
+      name, keyword, line, tags, description, is_outline
+      rule: RuleReference | None
+      background: ScenarioStep[]       (Feature Background + Rule Background)
+      steps: ScenarioStep[]            keyword, keyword_type, text, line, data_table, doc_string
+      examples: Examples[]             name, tags, line, header, rows[line, values]
+  issues: ParseIssue[]                 (line, column, readable message; sorted by position)
+```
+
+- Supported: Feature, Rule, Background, Scenario/Example, Scenario Outline/Template,
+  Examples, Given/When/Then/And/But/`*`, tags, descriptions, data tables, doc strings,
+  and every Gherkin language (`# language: pl`).
+- Syntax errors are returned, never raised; all errors are reported, with token
+  names translated (`unexpected 'oops'; expected step, table row, ...`).
+- Parsing is syntactic only. Models are permissive (empty names, no steps,
+  Examples without a table) so that validation (TASK-020) can report them.
+  `And`/`But`/`*` keep their own keyword type; resolving them is part of
+  compilation (TASK-023).
+
+### ADR-011: Official Cucumber parser
+
+Using `gherkin-official` gives the complete grammar, all languages and precise
+error locations, which a hand-written parser would need a long time to match.
+It is deterministic and needs no LLM. The conversion layer keeps it replaceable.

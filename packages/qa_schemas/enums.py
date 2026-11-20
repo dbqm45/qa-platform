@@ -101,3 +101,18 @@ class ScenarioFormat(StrEnum):
     """Format of a scenario source document; selects the parser (TASK-017)."""
 
     GHERKIN = "gherkin"
+
+
+@unique
+class StepKeywordType(StrEnum):
+    """Type of a Gherkin step keyword, as reported by the parser (TASK-019).
+
+    Language independent: ``Given``/``Zakładając`` are both CONTEXT.
+    CONJUNCTION (And/But) and UNKNOWN (``*``) are resolved during compilation.
+    """
+
+    CONTEXT = "context"
+    ACTION = "action"
+    OUTCOME = "outcome"
+    CONJUNCTION = "conjunction"
+    UNKNOWN = "unknown"

@@ -30,7 +30,7 @@
 | TASK-007 | Done |
 | TASK-010 | Done |
 | TASK-011 | Done |
-| TASK-006 | In progress — all models done except Scenario (TASK-019) and TestResult (TASK-057) |
+| TASK-006 | In progress — all models done except TestResult (TASK-057) |
 | TASK-008 | Done |
 | TASK-009 | Done |
 | TASK-012 | Done |
@@ -39,6 +39,7 @@
 | TASK-014 | Done (revised scope: `repo add` / `env add`) |
 | TASK-017 | Done — Markdown deferred (ADR-010) |
 | TASK-018 | Done |
+| TASK-019 | Done |
 
 ---
 

@@ -5,6 +5,7 @@ description = "Local-first, deterministic QA automation platform."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "gherkin-official>=29",
     "pydantic>=2.10",
     "pyyaml>=6.0",
     "ruamel-yaml>=0.18",
