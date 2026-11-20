@@ -63,6 +63,21 @@ Run everything before committing:
 uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
 ```
 
+## Project structure
+
+| Path | Contents |
+|------|----------|
+| `apps/cli/qa_cli/` | `qa` command-line interface |
+| `packages/qa_core/` | Domain logic |
+| `packages/qa_schemas/` | Versioned data schemas |
+| `packages/qa_execution/` | Execution engine and adapters |
+| `packages/qa_reporting/` | Reporting |
+| `tests/` | Platform tests |
+| `examples/` | Example scenarios and applications |
+
+Package responsibilities and allowed dependencies are described in
+[`docs/architecture.md`](docs/architecture.md).
+
 ## Roadmap
 
 The full task backlog lives in [`docs/backlog.md`](docs/backlog.md).

@@ -13,15 +13,24 @@ dev = [
     "mypy>=1.13",
 ]
 
-[tool.uv]
-# No build backend yet — packages are added in TASK-004.
-package = false
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "apps/cli/qa_cli",
+    "packages/qa_core",
+    "packages/qa_schemas",
+    "packages/qa_execution",
+    "packages/qa_reporting",
+]
 
 # --- Ruff: linting and formatting -----------------------------------------
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["apps", "packages", "tests"]
+src = ["apps/cli", "packages", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -42,7 +51,7 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["tests"]
+files = ["apps/cli", "packages", "tests"]
 warn_unreachable = true
 pretty = true
 
