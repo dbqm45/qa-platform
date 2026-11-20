@@ -72,3 +72,21 @@ arguments. Parsing is case-sensitive; normalising user input is the caller's job
 Note: because they are `StrEnum`s, `ExecutionMode.CONTRACT == TestCategory.CONTRACT`
 is `True` at runtime. mypy (strict) flags such cross-type comparisons; always
 compare against members of the same enum.
+
+## Schemas (`qa_schemas`)
+
+All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
+
+- **Unknown fields are rejected** (`extra="forbid"`), so configuration typos fail loudly.
+- **Instances are immutable** (`frozen=True`); collections are tuples. Derive
+  changed copies with `model_copy(update=...)`.
+- Shared field types: `Identifier` (`^[a-z][a-z0-9_-]{0,63}$`), `NonEmptyStr`
+  (stripped, 1–200 chars) and `SafeHttpUrl` (http/https, **no embedded credentials**).
+
+| Module | Models |
+|--------|--------|
+| `qa_schemas.project` | `Project`, `Repository`, `Environment` |
+
+`Project` validates cross-references: repository and environment names are
+unique, and `default_environment` must name a defined environment.
+Secrets and environment variables are added in TASK-055.

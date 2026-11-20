@@ -30,6 +30,7 @@
 | TASK-007 | Done |
 | TASK-010 | Done — storing the mode in the Execution Plan is verified in TASK-009 |
 | TASK-011 | Done |
+| TASK-006 | In progress — part 1 done (Project, Repository, Environment) |
 
 ---
 

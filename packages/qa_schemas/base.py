@@ -1,0 +1,35 @@
+"""Shared building blocks for all platform schemas."""
+
+from typing import Annotated
+
+from pydantic import AfterValidator, BaseModel, ConfigDict, HttpUrl, StringConstraints
+
+
+class SchemaModel(BaseModel):
+    """Base class for every platform schema.
+
+    - Unknown fields are rejected, so typos in configuration fail loudly.
+    - Instances are immutable; use ``model_copy(update=...)`` to derive new ones.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+Identifier = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-z][a-z0-9_-]{0,63}$"),
+]
+"""Stable machine identifier: lowercase letter, then letters, digits, ``-`` or ``_``; max 64."""
+
+NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+"""Human-readable label; surrounding whitespace is stripped."""
+
+
+def _reject_credentials(url: HttpUrl) -> HttpUrl:
+    if url.username or url.password:
+        raise ValueError("URL must not contain credentials; reference secrets separately")
+    return url
+
+
+SafeHttpUrl = Annotated[HttpUrl, AfterValidator(_reject_credentials)]
+"""HTTP(S) URL that cannot carry embedded credentials (``https://user:token@host``)."""

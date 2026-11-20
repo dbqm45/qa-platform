@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Local-first, deterministic QA automation platform."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "pydantic>=2.10",
+]
 
 [dependency-groups]
 dev = [
@@ -53,6 +55,7 @@ python_version = "3.12"
 strict = true
 files = ["apps/cli", "packages", "tests"]
 warn_unreachable = true
+plugins = ["pydantic.mypy"]
 pretty = true
 
 # --- pytest ---------------------------------------------------------------
@@ -64,3 +67,8 @@ markers = [
     "integration: uses real dependencies (browser, HTTP, SQLite); applied automatically to tests/integration/",
 ]
 xfail_strict = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
