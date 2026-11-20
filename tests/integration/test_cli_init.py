@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from qa_cli.main import app
 from qa_core.config import load_config
+from qa_core.storage import ProjectRepository, open_database
 
 runner = CliRunner()
 
@@ -27,7 +28,7 @@ def test_init_empty_directory(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "Initialized project 'my-shop'" in result.output
-    assert set(_snapshot(root)) == {"qa.yaml", "scenarios", ".qa", ".qa/.gitignore"}
+    assert set(_snapshot(root)) == {"qa.yaml", "scenarios", ".qa", ".qa/.gitignore", ".qa/qa.db"}
     config = load_config(root / "qa.yaml")
     assert config.project.id == "my-shop"
     assert config.project.name == "My Shop"
@@ -144,3 +145,28 @@ def test_installed_qa_command(tmp_path: Path) -> None:
 
     assert completed.returncode == 0, completed.stderr
     assert (tmp_path / "app" / "qa.yaml").is_file()
+
+
+def test_init_registers_project_in_database(tmp_path: Path) -> None:
+    runner.invoke(app, ["init", str(tmp_path), "--id", "shop", "--name", "Shop"])
+    config = tmp_path / "qa.yaml"
+    config.write_text(config.read_text().replace('name: "Shop"', 'name: "Shop v2"'))
+
+    result = runner.invoke(app, ["init", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    with open_database(tmp_path / ".qa" / "qa.db") as db:
+        record = ProjectRepository(db).get("shop")
+    assert record is not None
+    assert record.name == "Shop v2"
+    assert record.updated_at >= record.created_at
+
+
+def test_corrupt_database_is_reported(tmp_path: Path) -> None:
+    runner.invoke(app, ["init", str(tmp_path)])
+    (tmp_path / ".qa" / "qa.db").write_bytes(b"garbage" * 200)
+
+    result = runner.invoke(app, ["init", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "unusable" in result.output

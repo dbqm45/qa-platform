@@ -30,11 +30,12 @@
 | TASK-007 | Done |
 | TASK-010 | Done |
 | TASK-011 | Done |
-| TASK-006 | In progress — Project, Repository, Environment, TestCase, TestSpecification, ExecutionPlan done; Scenario (TASK-019), TestExecution and TestResult (TASK-057) remain |
+| TASK-006 | In progress — all models done except Scenario (TASK-019) and TestResult (TASK-057) |
 | TASK-008 | Done |
 | TASK-009 | Done |
 | TASK-012 | Done |
-| TASK-013 | Done — local storage (SQLite) is initialized in TASK-016 |
+| TASK-013 | Done |
+| TASK-016 | Done |
 
 ---
 
@@ -173,12 +174,21 @@ Acceptance criteria:
 - A new project can be initialized from an empty directory.
 - Running initialization twice does not destroy existing data.
 
-### TASK-014 — Implement project configuration: `qa project add` (P0)
-Project name, project ID, repository locations, default environment, scenario directory.
+### TASK-014 — Implement project configuration: `qa project repo add` / `qa project env add` (P0)
+> Revised after TASK-013: `qa init` already creates the project (id, name,
+> scenario directory, default environment), so this task edits an existing
+> `qa.yaml` instead of adding a project.
+
+- `qa project repo add NAME [--path PATH] [--url URL]` — add a repository.
+- `qa project env add NAME [--base-url URL] [--service NAME=URL ...] [--timeout S] [--default]`
+  — add an environment, optionally making it the default.
 
 Acceptance criteria:
-- Project configuration is saved locally.
+- Project configuration is saved locally in `qa.yaml`.
 - Configuration can be loaded after restarting the CLI.
+- The resulting `qa.yaml` is validated before it is written; invalid input changes nothing.
+- Duplicate names are rejected.
+- Existing content of `qa.yaml` (including comments) is preserved.
 
 ### TASK-015 — Implement project inspection: `qa project show` (P1)
 Project information, configured repositories, environments, scenario locations, available adapters.

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from qa_core.config import CONFIG_FILENAME, ConfigError, load_config, parse_config
+from qa_core.storage import DATABASE_FILENAME, ProjectRepository, open_database
 from qa_schemas.config import ProjectConfig
 
 PLATFORM_DIRNAME = ".qa"
@@ -73,6 +74,7 @@ def initialize_project(
     Raises:
         ConfigError: an existing ``qa.yaml`` is invalid.
         InitError: the given id/name are invalid, or ``root`` cannot be used.
+        StorageError: the local database cannot be created or migrated.
     """
     root = root.resolve()
     if root.exists() and not root.is_dir():
@@ -106,7 +108,16 @@ def initialize_project(
     platform_dir = root / PLATFORM_DIRNAME
     _ensure_dir(platform_dir, root, result)
     _write_new(platform_dir / ".gitignore", "# Local QA platform data\n*\n", root, result)
+    _init_database(platform_dir / DATABASE_FILENAME, config, root, result)
     return result
+
+
+def _init_database(path: Path, config: ProjectConfig, root: Path, result: InitResult) -> None:
+    """Create or migrate the local database and register the project in it."""
+    existed = path.exists()
+    with open_database(path) as connection:
+        ProjectRepository(connection).upsert(config.project)
+    (result.existing if existed else result.created).append(path.relative_to(root))
 
 
 def _ensure_dir(path: Path, root: Path, result: InitResult) -> None:

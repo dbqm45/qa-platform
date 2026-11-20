@@ -7,6 +7,7 @@ import typer
 
 from qa_core.config import CONFIG_FILENAME, ConfigError
 from qa_core.init import InitError, initialize_project
+from qa_core.storage import StorageError
 
 app = typer.Typer(
     name="qa",
@@ -40,7 +41,7 @@ def init(
     """Initialize a QA project. Safe to re-run: existing files are never overwritten."""
     try:
         result = initialize_project(directory, project_id=project_id, name=name)
-    except (ConfigError, InitError) as error:
+    except (ConfigError, InitError, StorageError) as error:
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(EXIT_ERROR) from None
 

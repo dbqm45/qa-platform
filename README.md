@@ -112,7 +112,8 @@ uv run qa init path/to/my-project
 |------|---------|
 | `qa.yaml` | Project configuration (see below). `--id` / `--name` set its initial values. |
 | `scenarios/` | Scenario files (the configured `scenario_dir`). |
-| `.qa/` | Local platform data (database, evidence, reports). Has its own `.gitignore`. |
+| `.qa/` | Local platform data (evidence, reports). Has its own `.gitignore`. |
+| `.qa/qa.db` | SQLite database with project and execution metadata; migrated automatically. |
 
 Re-running it is safe; an existing `qa.yaml` is validated and left untouched.
 Exit code is `0` on success and `1` on an error.

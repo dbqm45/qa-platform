@@ -91,6 +91,7 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | `qa_schemas.specification` | `TestSpecification`, `TestCase`, `Step`, `ScenarioSource`, `SpecificationMetadata` |
 | `qa_schemas.plan` | `ExecutionPlan`, `ExecutionSettings`, `Dependency` |
 | `qa_schemas.config` | `ProjectConfig` (root of `qa.yaml`) |
+| `qa_schemas.execution` | `TestExecution` |
 
 `Project` validates cross-references: repository and environment names are
 unique, and `default_environment` must name a defined environment.
@@ -151,5 +152,43 @@ result; `qa init` delegates to `qa_core.init.initialize_project()`.
 `initialize_project()` validates everything first (existing or generated
 `qa.yaml`, `scenario_dir` inside the project) and only then touches the
 filesystem. Files are created with exclusive mode (`open(..., "x")`), so an
-existing file is never overwritten, even by a concurrent run. Local database
-creation is added to `qa init` in TASK-016.
+existing file is never overwritten, even by a concurrent run. It then
+creates or migrates `.qa/qa.db` and registers the project in it.
+
+## Local persistence (TASK-016)
+
+`qa_core.storage` is the only package that contains SQL. Everything else works
+with models.
+
+| Module | Responsibility |
+|--------|----------------|
+| `storage.database` | `open_database(path)`: opens `.qa/qa.db`, enables foreign keys, applies migrations, always closes. |
+| `storage.migrations` | Ordered SQL migrations; schema version in `PRAGMA user_version`. |
+| `storage.repositories` | `ProjectRepository`, `ExecutionRepository`: models in, models out. |
+
+```
+projects   (id PK, name, created_at, updated_at)
+executions (id PK, project_id → projects, specification_id, plan_id,
+            mode, category, environment, status, created_at, started_at, finished_at)
+```
+
+- **What is stored where:** `qa.yaml` is the source of truth for configuration;
+  the database holds runtime metadata (registered project, executions, later
+  results). The project row is refreshed from `qa.yaml` on every `qa init`.
+- All failures surface as `StorageError` with a readable message.
+
+### ADR-007: stdlib `sqlite3`, no ORM
+
+The schema is small and queries are simple, so the standard library is enough
+and adds no dependency. Repositories keep SQL out of business logic, so an ORM
+or PostgreSQL (TASK-112) can be introduced behind the same interface later.
+
+### ADR-008: Migration rules
+
+- Migrations are append-only; released ones are never edited or reordered.
+- Each runs in one transaction together with the `user_version` bump; a failure
+  rolls back completely.
+- A database with a newer version than the code knows is refused, not modified.
+- Tables are `STRICT` (SQLite ≥ 3.37), and enum columns have `CHECK` constraints
+  written out literally; a unit test verifies they match the current enums.
+- Timestamps are stored as fixed-width UTC ISO 8601 text, so text order is time order.
