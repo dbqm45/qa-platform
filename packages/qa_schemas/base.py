@@ -55,3 +55,7 @@ StableId = Annotated[str, StringConstraints(pattern=STABLE_ID_PATTERN)]
 def find_duplicates(values: Iterable[str]) -> list[str]:
     """Return the values that occur more than once, sorted."""
     return sorted(value for value, count in Counter(values).items() if count > 1)
+
+
+ContentHash = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
+"""Hash of source content, e.g. ``sha256:9f86d0...``."""

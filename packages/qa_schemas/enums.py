@@ -94,3 +94,10 @@ class DependencyMode(StrEnum):
 
     REAL = "real"
     MOCK = "mock"
+
+
+@unique
+class ScenarioFormat(StrEnum):
+    """Format of a scenario source document; selects the parser (TASK-017)."""
+
+    GHERKIN = "gherkin"

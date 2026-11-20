@@ -58,6 +58,7 @@ module defines an enum containing a status value.
 | `TestCategory` | `functional`, `visual`, `accessibility`, `performance`, `security`, `contract` | What quality is verified. Independent of mode. |
 | `StepKind` | `precondition`, `action`, `expectation` | Role of a step (Gherkin Given / When / Then). |
 | `DependencyMode` | `real`, `mock` | How an external service is provided. |
+| `ScenarioFormat` | `gherkin` | Format of a scenario document; selects the parser. |
 
 ### ADR-002: Two status enums instead of one (TASK-007)
 
@@ -88,10 +89,11 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | Module | Models |
 |--------|--------|
 | `qa_schemas.project` | `Project`, `Repository`, `Environment` |
-| `qa_schemas.specification` | `TestSpecification`, `TestCase`, `Step`, `ScenarioSource`, `SpecificationMetadata` |
+| `qa_schemas.specification` | `TestSpecification`, `TestCase`, `Step`, `SourceReference`, `SpecificationMetadata` |
 | `qa_schemas.plan` | `ExecutionPlan`, `ExecutionSettings`, `Dependency` |
 | `qa_schemas.config` | `ProjectConfig` (root of `qa.yaml`) |
 | `qa_schemas.execution` | `TestExecution` |
+| `qa_schemas.scenario` | `ScenarioDocument` (raw, unparsed scenario input) |
 
 `Project` validates cross-references: repository and environment names are
 unique, and `default_environment` must name a defined environment.
@@ -208,3 +210,37 @@ validate the resulting text → atomic replace. Any failure leaves the file unto
 PyYAML cannot preserve comments, and the generated `qa.yaml` relies on them as
 documentation. `ruamel.yaml` is used only to write; validation keeps a single
 code path through `parse_config`.
+
+## Scenario sources (TASK-017, TASK-018)
+
+```
+ScenarioSource.discover() ──► DiscoveryResult
+                                 documents: ScenarioDocument[]  (path, format, content, content_hash)
+                                 problems:  DiscoveryProblem[]  (path, message)
+                                        │
+                                        ▼
+                          parser chosen by document.format  (TASK-019)
+```
+
+`ScenarioSource` (`qa_core.scenarios.sources`) is a `Protocol`: anything with
+`discover()`. Sources find and read documents; they never parse. A new source
+needs no parser change and a new format needs no source change.
+
+`LocalFileSource(root, directories)` — the only implementation so far:
+
+- recursive, results sorted by path (deterministic);
+- file types by extension (`FORMAT_BY_SUFFIX`, case-insensitive); everything
+  else, and hidden files/directories, is ignored;
+- directory symlinks are not followed; file symlinks must resolve inside the project;
+- directories outside the project are rejected;
+- content is decoded as UTF-8 (a BOM is removed); `content_hash` is the sha256
+  of the raw bytes;
+- unreadable, non-UTF-8, oversized (> 1 MB) files and missing directories are
+  reported as problems; discovery of other files continues.
+
+### ADR-010: Markdown scenarios deferred
+
+The backlog lists Markdown as an initial source type, but no Markdown scenario
+format is defined and there is no parser for it. Discovering `.md` files would
+pick up every README in a scenario directory. Supporting it later means adding
+a `ScenarioFormat` value, a suffix in `FORMAT_BY_SUFFIX` and a parser.

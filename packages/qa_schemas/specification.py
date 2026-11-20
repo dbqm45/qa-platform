@@ -10,14 +10,18 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, PositiveInt, StringConstraints, model_validator
 
-from qa_schemas.base import Identifier, NonEmptyStr, SchemaModel, StableId, find_duplicates
+from qa_schemas.base import (
+    ContentHash,
+    Identifier,
+    NonEmptyStr,
+    SchemaModel,
+    StableId,
+    find_duplicates,
+)
 from qa_schemas.enums import StepKind
 
 SPECIFICATION_SCHEMA_VERSION: Literal[1] = 1
 """Bump on any incompatible change to the specification format."""
-
-ContentHash = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
-"""Hash of the source content, e.g. ``sha256:9f86d0...``."""
 
 StepText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
@@ -25,7 +29,7 @@ Tag = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,9
 """Tag without the leading ``@``, e.g. ``smoke`` or ``jira:SHOP-12``."""
 
 
-class ScenarioSource(SchemaModel):
+class SourceReference(SchemaModel):
     """Where the specification came from (traceability, TASK-021)."""
 
     path: PurePosixPath
@@ -96,7 +100,7 @@ class TestSpecification(SchemaModel):
 
     schema_version: Literal[1] = SPECIFICATION_SCHEMA_VERSION
     id: StableId
-    source: ScenarioSource
+    source: SourceReference
     test_cases: Annotated[tuple[TestCase, ...], Field(min_length=1)]
     required_capabilities: tuple[Identifier, ...] = ()
     """Capabilities an adapter must provide, e.g. ``browser`` or ``http``."""

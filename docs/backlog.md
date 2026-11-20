@@ -37,6 +37,8 @@
 | TASK-013 | Done |
 | TASK-016 | Done |
 | TASK-014 | Done (revised scope: `repo add` / `env add`) |
+| TASK-017 | Done — Markdown deferred (ADR-010) |
+| TASK-018 | Done |
 
 ---
 
