@@ -77,6 +77,6 @@ from qa_core.config import ConfigError, load_config
 try:
     config = load_config(Path("qa.yaml"))
 except ConfigError as error:
-    print(error)            # readable, multi-line message
-    error.issues            # list[str], one entry per problem
+    print(error)  # readable, multi-line message
+    error.issues  # list[str], one entry per problem
 ```

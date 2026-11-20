@@ -141,3 +141,15 @@ migrations are added when a second version exists.
 YAML syntax, duplicate keys, validation) becomes a single `ConfigError` with
 one readable line per problem, so the CLI never shows a traceback for bad
 configuration. Format reference: [`configuration.md`](configuration.md).
+
+## CLI and project initialization (TASK-013)
+
+The CLI is built with Typer (`apps/cli/qa_cli/main.py`, entry point `qa`).
+Commands only parse arguments, call a function in a package and print the
+result; `qa init` delegates to `qa_core.init.initialize_project()`.
+
+`initialize_project()` validates everything first (existing or generated
+`qa.yaml`, `scenario_dir` inside the project) and only then touches the
+filesystem. Files are created with exclusive mode (`open(..., "x")`), so an
+existing file is never overwritten, even by a concurrent run. Local database
+creation is added to `qa init` in TASK-016.

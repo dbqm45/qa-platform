@@ -34,6 +34,7 @@
 | TASK-008 | Done |
 | TASK-009 | Done |
 | TASK-012 | Done |
+| TASK-013 | Done — local storage (SQLite) is initialized in TASK-016 |
 
 ---
 

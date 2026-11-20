@@ -97,6 +97,26 @@ Test files are named `test_*.py`, test functions `test_*`.
 Package responsibilities and allowed dependencies are described in
 [`docs/architecture.md`](docs/architecture.md).
 
+## Usage
+
+After installation the `qa` command is available inside the environment
+(`uv run qa ...`, or directly after `source .venv/bin/activate`).
+
+```bash
+uv run qa init path/to/my-project
+```
+
+`qa init` creates only what is missing and never overwrites existing files:
+
+| Path | Purpose |
+|------|---------|
+| `qa.yaml` | Project configuration (see below). `--id` / `--name` set its initial values. |
+| `scenarios/` | Scenario files (the configured `scenario_dir`). |
+| `.qa/` | Local platform data (database, evidence, reports). Has its own `.gitignore`. |
+
+Re-running it is safe; an existing `qa.yaml` is validated and left untouched.
+Exit code is `0` on success and `1` on an error.
+
 ## Configuration
 
 Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).
