@@ -63,6 +63,25 @@ Run everything before committing:
 uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
 ```
 
+## Tests
+
+```
+tests/
+├── unit/          # fast, isolated — no network, browser or filesystem side effects
+└── integration/   # real dependencies (browser, HTTP, SQLite)
+```
+
+Tests under `tests/integration/` are marked `integration` automatically.
+
+| Run | Command |
+|-----|---------|
+| All tests | `uv run pytest` |
+| Unit tests only | `uv run pytest -m "not integration"` |
+| Integration tests only | `uv run pytest -m integration` |
+| One file / one test | `uv run pytest tests/unit/test_version.py::test_version_is_semantic` |
+
+Test files are named `test_*.py`, test functions `test_*`.
+
 ## Project structure
 
 | Path | Contents |

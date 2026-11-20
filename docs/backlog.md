@@ -26,6 +26,7 @@
 | TASK-002 | Done |
 | TASK-003 | Done |
 | TASK-004 | Done |
+| TASK-005 | Done |
 
 ---
 

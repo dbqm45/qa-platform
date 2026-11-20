@@ -59,5 +59,8 @@ pretty = true
 [tool.pytest.ini_options]
 minversion = "8.3"
 testpaths = ["tests"]
-addopts = ["-ra", "--strict-markers", "--strict-config"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "integration: uses real dependencies (browser, HTTP, SQLite); applied automatically to tests/integration/",
+]
 xfail_strict = true
