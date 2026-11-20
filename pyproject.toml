@@ -1,0 +1,18 @@
+[project]
+name = "qa-platform"
+version = "0.1.0"
+description = "Local-first, deterministic QA automation platform."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[tool.uv]
+# No build backend yet — packages are added in TASK-004.
+package = false

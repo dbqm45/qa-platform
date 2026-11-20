@@ -4,7 +4,7 @@ Local-first QA automation platform. It turns Gherkin scenarios into normalized
 Test Specifications and executes them deterministically through adapters
 (Playwright for UI, HTTPX for APIs), producing results, evidence and reports.
 
-> **Status:** early development — Phase 0 (project setup). Nothing is runnable yet.
+> **Status:** early development — Phase 0 (project setup).
 
 ## Principles
 
@@ -15,10 +15,34 @@ Test Specifications and executes them deterministically through adapters
 
 ## Requirements
 
-- Python **3.12+** (pinned in `.python-version`)
+- Python **3.12** (pinned in `.python-version`)
+- [uv](https://docs.astral.sh/uv/) 0.5+ — dependency and environment manager
 - Git
 
-Installation and development commands will be documented in TASK-002.
+`uv` downloads Python 3.12 automatically if it is not installed.
+
+## Installation
+
+```bash
+git clone https://github.com/dbqm45/qa-platform.git
+cd qa-platform
+uv sync --locked
+```
+
+`uv sync --locked` creates `.venv/` and installs the exact versions from
+`uv.lock`; it fails if the lockfile is out of date with `pyproject.toml`.
+
+## Managing dependencies
+
+| Action | Command |
+|--------|---------|
+| Add a runtime dependency | `uv add <package>` |
+| Add a development dependency | `uv add --dev <package>` |
+| Remove a dependency | `uv remove <package>` |
+| Upgrade locked versions | `uv lock --upgrade` |
+| Run a command in the environment | `uv run <command>` |
+
+Always commit `pyproject.toml` and `uv.lock` together.
 
 ## Roadmap
 

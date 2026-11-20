@@ -23,6 +23,7 @@
 | Task | Status |
 |------|--------|
 | TASK-001 | Done |
+| TASK-002 | Done |
 
 ---
 
