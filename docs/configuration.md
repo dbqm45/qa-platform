@@ -68,6 +68,23 @@ Invalid configuration in qa.yaml:
 
 Referencing secrets (e.g. from environment variables) is added in TASK-055.
 
+## Editing from the command line
+
+| Command | Effect |
+|---------|--------|
+| `qa project repo add NAME [--path PATH] [--url URL]` | Appends to `project.repositories`. |
+| `qa project env add NAME [--base-url URL] [--service NAME=URL ...] [--timeout S] [--default]` | Appends to `project.environments`; `--default` also sets `default_environment`. |
+
+Both accept `-c/--config PATH` (default: `qa.yaml` in the current directory).
+
+- The current file must be valid; otherwise nothing is changed.
+- The new entry and the resulting file are validated before anything is written;
+  duplicate names are rejected.
+- The file is replaced atomically (temporary file + rename), keeping its permissions.
+- Comments, key order and quoting are preserved. Values are written exactly as
+  typed (no URL normalization). Indentation is normalized to 2 spaces for
+  mappings and 4/2 for list items.
+
 ## Programmatic use
 
 ```python

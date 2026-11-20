@@ -116,7 +116,20 @@ uv run qa init path/to/my-project
 | `.qa/qa.db` | SQLite database with project and execution metadata; migrated automatically. |
 
 Re-running it is safe; an existing `qa.yaml` is validated and left untouched.
-Exit code is `0` on success and `1` on an error.
+
+Add repositories and environments to an existing project:
+
+```bash
+uv run qa project repo add web --path ../shop-web
+```
+
+```bash
+uv run qa project env add staging --base-url https://staging.example.com --service api=https://api.staging.example.com --timeout 60 --default
+```
+
+Both commands use `qa.yaml` in the current directory (`-c PATH` for another
+file), validate the result before writing, and keep existing comments.
+Exit codes: `0` success, `1` error (configuration, validation, storage), `2` invalid command-line usage.
 
 ## Configuration
 

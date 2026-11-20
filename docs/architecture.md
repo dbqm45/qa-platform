@@ -192,3 +192,19 @@ or PostgreSQL (TASK-112) can be introduced behind the same interface later.
 - Tables are `STRICT` (SQLite ≥ 3.37), and enum columns have `CHECK` constraints
   written out literally; a unit test verifies they match the current enums.
 - Timestamps are stored as fixed-width UTC ISO 8601 text, so text order is time order.
+
+## Editing configuration (TASK-014)
+
+`qa_core.config_edit` edits `qa.yaml` with `ruamel.yaml` in round-trip mode, so
+comments and layout survive. Reading for validation still goes through
+`qa_core.config.parse_config` (PyYAML + Pydantic) — there is one definition of
+"valid configuration".
+
+Each edit: validate current file → apply change to the round-trip document →
+validate the resulting text → atomic replace. Any failure leaves the file untouched.
+
+### ADR-009: `ruamel.yaml` for writing only
+
+PyYAML cannot preserve comments, and the generated `qa.yaml` relies on them as
+documentation. `ruamel.yaml` is used only to write; validation keeps a single
+code path through `parse_config`.

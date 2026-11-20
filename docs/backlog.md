@@ -36,6 +36,7 @@
 | TASK-012 | Done |
 | TASK-013 | Done |
 | TASK-016 | Done |
+| TASK-014 | Done (revised scope: `repo add` / `env add`) |
 
 ---
 

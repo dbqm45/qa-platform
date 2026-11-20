@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "pydantic>=2.10",
     "pyyaml>=6.0",
+    "ruamel-yaml>=0.18",
     "typer>=0.15",
 ]
 

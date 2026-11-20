@@ -68,7 +68,9 @@ def parse_config(text: str, path: Path = Path(CONFIG_FILENAME)) -> ProjectConfig
     try:
         return ProjectConfig.model_validate(data)
     except ValidationError as exc:
-        raise ConfigError(path, [_describe(error) for error in exc.errors()]) from None
+        raise ConfigError(
+            path, [describe_validation_error(error) for error in exc.errors()]
+        ) from None
 
 
 # --- YAML --------------------------------------------------------------------
@@ -98,7 +100,8 @@ def _describe_yaml_error(exc: yaml.MarkedYAMLError) -> str:
 # --- Validation errors -------------------------------------------------------
 
 
-def _describe(error: ErrorDetails) -> str:
+def describe_validation_error(error: ErrorDetails) -> str:
+    """One readable line for a Pydantic error: location, message and safe input."""
     location = _format_location(error["loc"])
     if error["type"] == "extra_forbidden":
         message = "unknown field"
