@@ -90,6 +90,7 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | `qa_schemas.project` | `Project`, `Repository`, `Environment` |
 | `qa_schemas.specification` | `TestSpecification`, `TestCase`, `Step`, `ScenarioSource`, `SpecificationMetadata` |
 | `qa_schemas.plan` | `ExecutionPlan`, `ExecutionSettings`, `Dependency` |
+| `qa_schemas.config` | `ProjectConfig` (root of `qa.yaml`) |
 
 `Project` validates cross-references: repository and environment names are
 unique, and `default_environment` must name a defined environment.
@@ -132,3 +133,11 @@ during plan generation (TASK-050), not by the schema.
 Both documents carry `schema_version` (currently `1`) as their first field.
 Any other value is rejected. The version is bumped on incompatible changes;
 migrations are added when a second version exists.
+
+## Configuration loading (TASK-012)
+
+`qa_schemas.config.ProjectConfig` defines the shape of `qa.yaml`;
+`qa_core.config.load_config()` does the I/O. Every failure (missing file,
+YAML syntax, duplicate keys, validation) becomes a single `ConfigError` with
+one readable line per problem, so the CLI never shows a traceback for bad
+configuration. Format reference: [`configuration.md`](configuration.md).

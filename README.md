@@ -97,6 +97,10 @@ Test files are named `test_*.py`, test functions `test_*`.
 Package responsibilities and allowed dependencies are described in
 [`docs/architecture.md`](docs/architecture.md).
 
+## Configuration
+
+Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).
+
 ## Roadmap
 
 The full task backlog lives in [`docs/backlog.md`](docs/backlog.md).

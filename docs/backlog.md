@@ -33,6 +33,7 @@
 | TASK-006 | In progress — Project, Repository, Environment, TestCase, TestSpecification, ExecutionPlan done; Scenario (TASK-019), TestExecution and TestResult (TASK-057) remain |
 | TASK-008 | Done |
 | TASK-009 | Done |
+| TASK-012 | Done |
 
 ---
 

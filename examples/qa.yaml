@@ -1,0 +1,26 @@
+# Example project configuration. Paths are relative to this file's directory.
+# Never put credentials here: unknown fields and URLs with user:password are rejected.
+version: 1
+
+project:
+  id: shop
+  name: Example Shop
+  scenario_dir: scenarios
+  default_environment: local
+
+  repositories:
+    - name: web
+      path: ../../shop-web          # local checkout, read-only for the platform
+    - name: api
+      url: https://example.com/org/shop-api
+
+  environments:
+    - name: local
+      base_url: http://localhost:3000
+      services:
+        api: http://localhost:8000
+    - name: staging
+      base_url: https://staging.example.com
+      services:
+        api: https://api.staging.example.com
+      timeout_seconds: 60

@@ -17,10 +17,22 @@ class SchemaModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-Identifier = Annotated[
-    str,
-    StringConstraints(pattern=r"^[a-z][a-z0-9_-]{0,63}$"),
-]
+IDENTIFIER_PATTERN = r"^[a-z][a-z0-9_-]{0,63}$"
+STABLE_ID_PATTERN = r"^[a-z0-9][a-z0-9_.:-]{0,199}$"
+
+PATTERN_DESCRIPTIONS: dict[str, str] = {
+    IDENTIFIER_PATTERN: (
+        "must start with a lowercase letter and contain only lowercase letters, "
+        "digits, '-' or '_' (max 64 characters)"
+    ),
+    STABLE_ID_PATTERN: (
+        "must start with a lowercase letter or digit and contain only lowercase "
+        "letters, digits, '.', ':', '-' or '_' (max 200 characters)"
+    ),
+}
+"""Human-readable explanations of the patterns above, used in error messages."""
+
+Identifier = Annotated[str, StringConstraints(pattern=IDENTIFIER_PATTERN)]
 """Stable machine identifier: lowercase letter, then letters, digits, ``-`` or ``_``; max 64."""
 
 NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -36,10 +48,7 @@ def _reject_credentials(url: HttpUrl) -> HttpUrl:
 SafeHttpUrl = Annotated[HttpUrl, AfterValidator(_reject_credentials)]
 """HTTP(S) URL that cannot carry embedded credentials (``https://user:token@host``)."""
 
-StableId = Annotated[
-    str,
-    StringConstraints(pattern=r"^[a-z0-9][a-z0-9_.:-]{0,199}$"),
-]
+StableId = Annotated[str, StringConstraints(pattern=STABLE_ID_PATTERN)]
 """Deterministic identifier of generated artifacts, e.g. ``login.successful-login``."""
 
 
