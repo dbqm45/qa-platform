@@ -115,8 +115,3 @@ class AdapterRegistry:
         if unknown := sorted(set(allowed) - set(self._adapters)):
             raise AdapterSelectionError(f"unknown adapters: {', '.join(unknown)}")
         return [a for name, a in self._adapters.items() if name in set(allowed)]
-
-
-def builtin_adapters() -> AdapterRegistry:
-    """Registry of the platform's built-in adapters (empty until TASK-039)."""
-    return AdapterRegistry()

@@ -26,6 +26,23 @@ project:
       timeout_seconds: 30                 # default 30, max 3600
 ```
 
+## Adapter settings
+
+Optional, per adapter:
+
+```yaml
+adapters:
+  playwright:
+    browser: chromium          # chromium | firefox | webkit
+    headless: true
+    executable_path: null      # path to a browser binary; default: the one Playwright installed
+    viewport_width: 1280       # 200..7680
+    viewport_height: 720       # 200..4320
+```
+
+Each section is validated by its adapter when an execution starts (unknown
+fields are rejected then), not when `qa.yaml` is loaded.
+
 ## Field reference
 
 | Field | Type | Default | Notes |

@@ -20,7 +20,8 @@ Lifecycle per execution::
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -39,6 +40,11 @@ class ExecutionContext:
     settings: ExecutionSettings
     evidence_dir: Path
     """Directory for this execution's evidence; adapters write only below it."""
+    adapter_config: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    """Settings from ``qa.yaml`` ``adapters:``, by adapter name."""
+
+    def config_for(self, adapter: str) -> Mapping[str, Any]:
+        return self.adapter_config.get(adapter, {})
 
 
 class AdapterNotPreparedError(RuntimeError):

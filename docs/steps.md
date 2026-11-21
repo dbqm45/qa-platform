@@ -1,5 +1,32 @@
 # Step definitions
 
+## Built-in steps
+
+### Navigation (`browser`, Playwright)
+
+| Step | Action | Notes |
+|------|--------|-------|
+| `the user opens "<url>"` | `browser.open` | |
+| `the user navigates to "<url>"` | `browser.navigate` | same behaviour as `opens`, reads better mid-scenario |
+| `the user reloads the page` | `browser.reload` | |
+| `the user goes back` | `browser.back` | fails if there is no previous page |
+
+`<url>` is an absolute `http(s)://` URL or a path starting with `/`, resolved
+against the environment's `base_url`. Other values (`file:`, `javascript:`,
+`login.html`, URLs with credentials) are rejected when compiling.
+All can be used with Given or When.
+
+| Problem | Status | Classification |
+|---------|--------|----------------|
+| the page responds with HTTP 4xx/5xx | failed | `application_bug` |
+| connection refused, DNS error, timeout | error | `environment_error` |
+| relative URL but no `base_url` | error | `environment_error` |
+| no previous page for `goes back` | failed | `application_bug` |
+
+Every message includes the current page URL.
+
+## Writing step definitions
+
 A step definition connects step text in scenarios to an implementation.
 Resolution is deterministic: no step is ever guessed.
 

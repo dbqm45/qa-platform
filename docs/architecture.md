@@ -370,9 +370,9 @@ capability (only when `available_capabilities` is given) → `unsupported`;
 test case without expectation → `needs_review`; otherwise `ready`. Only
 `ready` is executable; the runner must check `status.is_executable`.
 
-Built-in step definitions come from `qa_core.steps.builtin.builtin_registry()`,
-which is empty until TASK-031. The CLI passes the capabilities of
-`qa_execution.registry.builtin_adapters()` as `available_capabilities`.
+Built-in step definitions and adapters come from
+`qa_execution.builtin.builtin_registry()` / `builtin_adapters()`; the CLI passes
+the adapters' capabilities as `available_capabilities`.
 
 ### ADR-014: Validation errors block the whole file
 
@@ -420,3 +420,19 @@ The runner persists status through an `ExecutionStore` protocol, which
 `qa_core.storage.ExecutionRepository` satisfies; it has no SQL of its own.
 Clock and id factory are injectable, so tests are deterministic.
 Behaviour for users and step authors: [`execution.md`](execution.md).
+
+## Browser adapter (TASK-039, TASK-040)
+
+`qa_execution.browser` contains the Playwright adapter (`PlaywrightAdapter`,
+capability `browser`), its configuration (`BrowserConfig`, from `qa.yaml`
+`adapters.playwright`) and the navigation steps. `qa_execution.builtin`
+assembles the built-in step and adapter registries; it lives in
+`qa_execution` because built-in steps depend on Playwright and on
+`qa_execution.errors`, which `qa_core` must not import.
+
+- One browser per execution; a new browser context and page per test case,
+  so cookies and storage never leak between test cases.
+- The environment's `base_url` is the context's base URL; the default timeout
+  is the plan's `step_timeout_seconds`.
+- A browser that cannot be launched or invalid adapter settings are
+  `environment_error`s with a hint how to fix them.

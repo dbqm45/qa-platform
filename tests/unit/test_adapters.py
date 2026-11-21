@@ -15,7 +15,6 @@ from qa_execution.registry import (
     AdapterRegistrationError,
     AdapterRegistry,
     AdapterSelectionError,
-    builtin_adapters,
 )
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.plan import ExecutionSettings
@@ -186,10 +185,6 @@ def test_registry_holds_classes_so_executions_get_fresh_instances() -> None:
     registry = AdapterRegistry([Browser])
     adapter_class = registry.select({"browser"}).adapters[0]
     assert adapter_class() is not adapter_class()
-
-
-def test_builtin_registry_is_empty_until_adapters_are_added() -> None:
-    assert builtin_adapters().adapters == ()
 
 
 # --- Selection by capability -------------------------------------------------

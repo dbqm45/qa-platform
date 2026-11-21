@@ -15,7 +15,7 @@ it needs with ``context.resource("browser")``.
 
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -91,7 +91,9 @@ class LocalRunner:
         store: ExecutionStore | None = None,
         clock: Clock = lambda: datetime.now(UTC),
         id_factory: Callable[[datetime], str] = new_execution_id,
+        adapter_config: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
+        self._adapter_config = dict(adapter_config or {})
         self._steps = steps
         self._adapters = adapters
         self._evidence_root = evidence_root
@@ -127,6 +129,7 @@ class LocalRunner:
             environment=request.environment,
             settings=plan.settings,
             evidence_dir=evidence_dir,
+            adapter_config=self._adapter_config,
         )
         adapters = [adapter_class() for adapter_class in selection.adapters]
         providers = {

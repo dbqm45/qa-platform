@@ -56,6 +56,8 @@
 | TASK-035 | Done |
 | TASK-036 | Done |
 | TASK-038 | Done |
+| TASK-039 | Done |
+| TASK-040 | Done |
 
 ---
 

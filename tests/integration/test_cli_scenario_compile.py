@@ -93,6 +93,7 @@ def test_steps_without_adapter_are_unsupported(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(main, "builtin_registry", _login_registry)
+    monkeypatch.setattr(main, "builtin_adapters", AdapterRegistry)  # no adapters at all
     _write(project, "login.feature", LOGIN)
 
     code, output = _compile(project)

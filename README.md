@@ -32,6 +32,16 @@ uv sync --locked
 `uv sync --locked` creates `.venv/` and installs the exact versions from
 `uv.lock`; it fails if the lockfile is out of date with `pyproject.toml`.
 
+Browser tests need a browser for Playwright:
+
+```bash
+uv run playwright install chromium
+```
+
+Alternatively point `adapters.playwright.executable_path` in `qa.yaml` to an
+existing Chromium. Browser integration tests are skipped when no browser can
+be launched (set `QA_TEST_BROWSER_EXECUTABLE` to use a specific binary).
+
 ## Managing dependencies
 
 | Action | Command |

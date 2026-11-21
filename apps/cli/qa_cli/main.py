@@ -18,9 +18,8 @@ from qa_core.scenarios.service import (
     validate_project,
     write_specifications,
 )
-from qa_core.steps.builtin import builtin_registry
 from qa_core.storage import StorageError
-from qa_execution.registry import builtin_adapters
+from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_schemas.enums import CompilationStatus, IssueSeverity
 
 app = typer.Typer(

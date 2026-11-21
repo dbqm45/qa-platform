@@ -50,6 +50,7 @@ failure. Step implementations import these from `qa_execution.errors`:
 ```python
 from qa_execution.errors import StepFailure
 
+
 def greeting_contains(context, text: str) -> None:
     page = context.resource("browser")
     actual = page.inner_text("#greeting")
