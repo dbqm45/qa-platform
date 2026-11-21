@@ -73,7 +73,7 @@ fields are rejected then), not when `qa.yaml` is loaded.
 | `project.environments[].base_url` | http(s) URL | none | |
 | `project.environments[].services` | map identifier → URL | `{}` | |
 | `project.environments[].timeout_seconds` | number | `30` | `0 < value ≤ 3600`. Step timeout. |
-| `project.environments[].variables` | map `NAME` → text | `{}` | Plain values for `${NAME}`; names like `*_PASSWORD`, `*_TOKEN`, `*_SECRET`, `*_KEY` are rejected. |
+| `project.environments[].variables` | map `NAME` → text | `{}` | Plain values for `${NAME}`; names like `*_PASSWORD`, `*_TOKEN`, `*_SECRET`, `*_KEY` are rejected, and so are the built-in `RUN_ID` and `UNIQUE` ([steps.md](steps.md#unique-test-data)). |
 | `project.environments[].headers` | map header → text | `{}` | Default API headers; `Authorization`, `X-Api-Key`, `Cookie`, … must contain a `${NAME}` reference. |
 
 ## Validation rules

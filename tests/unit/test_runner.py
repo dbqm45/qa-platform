@@ -919,3 +919,49 @@ def test_environment_variables_are_resolved_without_masking(tmp_path: Path) -> N
     assert report.execution.status is S.PASSED
     assert "secret-step:alice-user" in EVENTS
     assert report.results[0].steps[0].text == 'the user types "${SHOP_USER}"'
+
+
+# --- Built-in values: ${RUN_ID}, ${UNIQUE} (TASK-056) ------------------------
+
+
+def test_unique_is_one_value_per_test_case(tmp_path: Path) -> None:
+    compiled = _compiled(
+        'When the user does "user-${UNIQUE}"',
+        'Then outcome "<what>-${UNIQUE}"',
+        outline_rows=["a", "b"],
+    )
+    runner_ = _runner(tmp_path, id_factory=lambda now: "20260101-120000-abc123")
+
+    report = runner_.run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+
+    first, second = (r.unique for r in report.results)
+    assert first == "20260101120000abc1231"
+    assert second == "20260101120000abc1232"
+    steps = [e.split(":")[1] for e in EVENTS if e.startswith("step:")]
+    assert steps == [f"user-{first}", f"a-{first}", f"user-{second}", f"b-{second}"]
+
+
+def test_run_id_and_unique_are_not_masked(tmp_path: Path) -> None:
+    compiled = _compiled('When the user does "${RUN_ID}"', 'Then outcome "fail-${UNIQUE}"')
+    report = _runner(tmp_path).run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+    [result] = report.results
+    assert f"step:{report.execution.id}:browser-resource" in EVENTS
+    assert result.unique is not None and "*" not in result.unique
+    log = (tmp_path / "evidence" / report.execution.id / "execution.log").read_text()
+    assert f'"unique": "{result.unique}"' in log
+
+
+def test_unique_outside_a_test_case(tmp_path: Path) -> None:
+    from qa_core.redaction import MissingSecretError
+
+    context = ExecutionContext(
+        execution_id="e", environment=Environment(name="local"),
+        settings=ExecutionSettings(), evidence_dir=tmp_path, builtins={"RUN_ID": "e"},
+    )  # fmt: skip
+    assert context.resolve("run ${RUN_ID}") == "run e"
+    with pytest.raises(MissingSecretError, match=r"\$\{UNIQUE\} is only available in test case"):
+        context.resolve("${UNIQUE}")

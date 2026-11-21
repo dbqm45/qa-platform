@@ -14,6 +14,7 @@ it needs with ``context.resource("browser")``.
 """
 
 import os
+import re
 import secrets
 import time
 from collections import Counter
@@ -154,6 +155,7 @@ class LocalRunner:
             adapter_config=self._adapter_config,
             redactor=Redactor(),
             secret_source=self._variables,
+            builtins={"RUN_ID": execution.id},
         )
         adapters = [adapter_class() for adapter_class in selection.adapters]
         providers = {
@@ -273,6 +275,12 @@ def _overall(results: list[TestResult], failure: Failure | None) -> S:
     return S.PASSED
 
 
+def unique_value(execution_id: str, case_number: int) -> str:
+    """``${UNIQUE}`` of one test case: lowercase letters and digits only, so it fits
+    usernames, e-mail addresses and URLs; unique per execution and test case."""
+    return f"{re.sub(r'[^a-z0-9]', '', execution_id.lower())}{case_number}"
+
+
 class _Run:
     """State of one execution while it runs."""
 
@@ -317,7 +325,7 @@ class _Run:
                 results.extend(_cancelled(c, f"not run: {message}") for c in cases[index:])
                 self._log_cancelled(cases[index:], message)
                 return results, Failure(classification=C.ENVIRONMENT_ERROR, message=message)
-            result = self._run_case(case)
+            result = self._run_case(case, index + 1)
             results.append(result)
             if fail_fast and result.status is not S.PASSED:
                 reason = f"not run: fail_fast after {case.id} did not pass"
@@ -388,9 +396,14 @@ class _Run:
             self.log.event("adapter-prepared", adapter=adapter.name)
         return None
 
-    def _run_case(self, case: TestCase) -> TestResult:
-        self.log.event("test-case-started", test_case_id=case.id, name=case.name)
-        result = self._execute_case(case)
+    def _run_case(self, case: TestCase, number: int) -> TestResult:
+        unique = unique_value(self.context.execution_id, number)
+        self.context.builtins["UNIQUE"] = unique
+        self.log.event("test-case-started", test_case_id=case.id, name=case.name, unique=unique)
+        try:
+            result = self._execute_case(case).model_copy(update={"unique": unique})
+        finally:
+            del self.context.builtins["UNIQUE"]
         self.log.event(
             "test-case-finished",
             test_case_id=case.id,

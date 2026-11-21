@@ -48,17 +48,20 @@ class ExecutionContext:
     """Masks this execution's secrets; adapters apply it to evidence they write."""
     secret_source: Mapping[str, str] = field(default_factory=dict)
     """Where ``${NAME}`` secrets come from (normally the process environment)."""
+    builtins: dict[str, str] = field(default_factory=dict)
+    """``${RUN_ID}`` always; ``${UNIQUE}`` while a test case runs (set by the runner)."""
 
     def config_for(self, adapter: str) -> Mapping[str, Any]:
         return self.adapter_config.get(adapter, {})
 
     def resolve(self, text: str) -> str:
-        """Resolve ``${NAME}``: environment ``variables`` first, then secrets.
+        """Resolve ``${NAME}``: platform values (``RUN_ID``, ``UNIQUE``), then
+        environment ``variables``, then secrets.
 
         Raises ``MissingSecretError`` for an unknown name.
         """
         return resolve_references(
-            text, self.secret_source, self.redactor, self.environment.variables
+            text, self.secret_source, self.redactor, self.environment.variables, self.builtins
         )
 
 

@@ -62,6 +62,8 @@ class TestResult(SchemaModel):
     failure: Failure | None = None
     evidence: tuple[EvidenceReference, ...] = ()
     notes: tuple[str, ...] = ()
+    unique: str | None = None
+    """The value of ``${UNIQUE}`` for this test case, to find the data it created."""
     """Secondary problems that did not change the outcome (e.g. evidence collection)."""
 
     @model_validator(mode="after")

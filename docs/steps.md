@@ -136,6 +136,36 @@ type-exact, so `4` does not match `4.0`.
 | an assertion before any request | error | `test_implementation_error` |
 | invalid method, URL, path, header name or JSON body | blocked at compile time | — |
 
+## Unique test data
+
+Two values are provided by the platform during an execution and can be used
+in any step text, data table or doc string:
+
+| Reference | Value | Example |
+|-----------|-------|---------|
+| `${RUN_ID}` | the execution id | `20261121-125129-0d376b` |
+| `${UNIQUE}` | one value per test case, the same in all its steps | `202611211251290d376b2` |
+
+```gherkin
+Scenario: A new customer registers
+  When the user fills "Email" with "qa-${UNIQUE}@example.com"
+  And the user clicks "Register"
+  Then the page shows "qa-${UNIQUE}@example.com"
+```
+
+- `${UNIQUE}` contains only lowercase letters and digits, so it fits usernames,
+  e-mail addresses and URLs. It differs for every test case (including each
+  row of a `Scenario Outline`) and every execution, so tests can run
+  repeatedly, or in several environments, without colliding on data they
+  create.
+- The value of each test case is stored in `results.json` (`unique`) and in
+  the log (`test-case-started`), so you can find the data a test created.
+- Neither is a secret: they are not masked. Their names are reserved, so
+  `variables` in `qa.yaml` cannot define them, and they take precedence over
+  an environment variable of the same name.
+- `${RUN_ID}` also works in environment `headers`; `${UNIQUE}` only in test
+  case steps (elsewhere: `${UNIQUE} is only available in test case steps`).
+
 ## Writing step definitions
 
 A step definition connects step text in scenarios to an implementation.

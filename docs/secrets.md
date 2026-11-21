@@ -35,8 +35,10 @@ environments:
       X-Api-Key: ${SHOP_API_KEY}    # secret: from the environment variable
 ```
 
-`${NAME}` is resolved from the target environment's `variables` first (plain,
-not masked), otherwise from environment variables (secret, masked). So the
+`${NAME}` is resolved from the platform's built-in values first (`RUN_ID`,
+`UNIQUE`, see [steps.md](steps.md#unique-test-data)), then the target
+environment's `variables` (plain, not masked), otherwise from environment
+variables (secret, masked). So the
 same scenario can run against environments with different users or keys.
 Headers listed under `headers` are sent with every API request; a missing
 secret makes each test case `error` / `environment_error`. `qa.yaml` rejects

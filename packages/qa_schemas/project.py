@@ -7,6 +7,7 @@ from typing import Annotated, Self
 from pydantic import Field, PositiveFloat, StringConstraints, model_validator
 
 from qa_schemas.base import (
+    BUILTIN_VARIABLES,
     REFERENCE_PATTERN,
     SENSITIVE_NAMES,
     VARIABLE_NAME_PATTERN,
@@ -64,6 +65,11 @@ class Environment(SchemaModel):
     @model_validator(mode="after")
     def _no_plaintext_secrets(self) -> Self:
         for name in self.variables:
+            if name in BUILTIN_VARIABLES:
+                raise ValueError(
+                    f"variable {name} is provided by the platform during an execution "
+                    "and cannot be defined in qa.yaml"
+                )
             if _SENSITIVE.search(name):
                 raise ValueError(
                     f"variable {name} looks like a secret; do not put secrets in qa.yaml, "

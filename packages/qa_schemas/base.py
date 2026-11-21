@@ -71,6 +71,9 @@ VARIABLE_NAME_PATTERN = r"^[A-Z_][A-Z0-9_]*$"
 REFERENCE_PATTERN = r"\$\{([A-Z_][A-Z0-9_]*)\}"
 """A ``${NAME}`` reference inside text."""
 
+BUILTIN_VARIABLES = frozenset({"RUN_ID", "UNIQUE"})
+"""Values the platform provides during an execution (TASK-056); reserved names."""
+
 SENSITIVE_NAMES = (
     r"pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|auth|session|pin|otp"
 )

@@ -202,3 +202,9 @@ def test_plaintext_credentials_in_headers_are_rejected(
 def test_invalid_or_secret_variables_are_rejected(name: str, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         Environment(name="qa", variables={name: "x"})
+
+
+@pytest.mark.parametrize("name", ["RUN_ID", "UNIQUE"])
+def test_builtin_variable_names_are_reserved(name: str) -> None:
+    with pytest.raises(ValidationError, match=f"variable {name} is provided by the platform"):
+        Environment(name="qa", variables={name: "x"})

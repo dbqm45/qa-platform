@@ -17,7 +17,7 @@ import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from qa_schemas.base import REFERENCE_PATTERN, SENSITIVE_NAMES
+from qa_schemas.base import BUILTIN_VARIABLES, REFERENCE_PATTERN, SENSITIVE_NAMES
 
 MASK = "********"
 
@@ -36,8 +36,10 @@ _AUTHORIZATION = re.compile(r"(?i)\b(bearer|basic|token)\s+[A-Za-z0-9._~+/=-]{4,
 class MissingSecretError(LookupError):
     """A ``${NAME}`` reference has no value."""
 
-    def __init__(self, name: str) -> None:
-        super().__init__(f"secret {name} is not set (export it as an environment variable)")
+    def __init__(self, name: str, message: str | None = None) -> None:
+        super().__init__(
+            message or f"secret {name} is not set (export it as an environment variable)"
+        )
         self.name = name
 
 
@@ -81,18 +83,25 @@ def resolve_references(
     environment: Mapping[str, str],
     redactor: Redactor,
     plain: Mapping[str, str] | None = None,
+    builtins: Mapping[str, str] | None = None,
 ) -> str:
     """Replace ``${NAME}`` with its value.
 
-    ``plain`` (an environment's ``variables`` from ``qa.yaml``) is looked up
-    first and is not secret. Otherwise the value comes from ``environment``
+    ``builtins`` (values the platform provides, e.g. ``RUN_ID``) come first,
+    then ``plain`` (an environment's ``variables`` from ``qa.yaml``); neither
+    is secret. Otherwise the value comes from ``environment``
     (the process environment), is treated as a secret and registered with the
     redactor.
     """
     plain = plain or {}
+    builtins = builtins or {}
 
     def value_of(match: re.Match[str]) -> str:
         name = match.group(1)
+        if name in builtins:
+            return builtins[name]
+        if name in BUILTIN_VARIABLES:  # a platform value, but not available here
+            raise MissingSecretError(name, f"${{{name}}} is only available in test case steps")
         if name in plain:
             return plain[name]
         if name not in environment:
