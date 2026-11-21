@@ -127,7 +127,8 @@ Execution:
 - Only the `functional` test category runs.
 - Hard timeouts need POSIX signals and the main thread. On Windows, or when
   embedded in a thread, only adapter timeouts apply (ADR-019).
-- No test data isolation beyond what scenarios do themselves (TASK-056, P1).
+- Test data isolation (TASK-056) is opt-in: `${UNIQUE}`, setup/cleanup requests and
+  protected environments; nothing is isolated automatically.
 
 Security:
 
@@ -149,7 +150,7 @@ Recommended next, in order:
    post-MVP TASK-128/129).
 2. ~~TASK-065 (CLI error messages, `--version`) and TASK-015 (`qa project show`).~~ Done.
 3. ~~TASK-060 (JSON report beyond `results.json`) and TASK-064 (rerun failed).~~ Done.
-4. TASK-056 (test data isolation), then mocked dependencies (completes
+4. ~~TASK-056 (test data isolation)~~ done; then mocked dependencies (completes
    TASK-051).
 5. TASK-054 (contract mode), TASK-061 (fingerprinting), TASK-069 (safety
    policies).

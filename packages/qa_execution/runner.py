@@ -29,6 +29,7 @@ from qa_core.redaction import MissingSecretError, Redactor
 from qa_core.steps.registry import StepArguments, StepParameterError, StepRegistry
 from qa_execution.adapters import ExecutionContext, TestAdapter
 from qa_execution.errors import TestEnvironmentError, classify, describe
+from qa_execution.hooks import run_hooks
 from qa_execution.log import LOG_FILENAME, ExecutionLog
 from qa_execution.protection import ProtectedEnvironmentError
 from qa_execution.registry import AdapterRegistry, AdapterSelection, AdapterSelectionError
@@ -305,6 +306,7 @@ class _Run:
         self.providers = providers
         self.prepared: list[TestAdapter] = []
         self._cleaned = False
+        self._setup_attempted = False
         self.step_timeout = context.settings.step_timeout_seconds
         self.budget = Budget(context.settings.timeout_seconds)
 
@@ -318,7 +320,7 @@ class _Run:
     ) -> tuple[list[TestResult], Failure | None]:
         cases = specification.test_cases
         self.budget = Budget(self.context.settings.timeout_seconds)  # starts now
-        failure = self._validate_and_prepare(specification)
+        failure = self._validate_and_prepare(specification) or self._setup()
         if failure is not None:
             return [_not_run(case, failure) for case in cases], failure
 
@@ -347,6 +349,14 @@ class _Run:
             return []
         self._cleaned = True
         errors = []
+        if self._setup_attempted:  # nothing to undo if the execution never got that far
+            try:
+                with deadline(
+                    CLEANUP_SECONDS, f"cleanup requests did not finish within {CLEANUP_SECONDS:g}s"
+                ):
+                    run_hooks("cleanup", self.context.environment.cleanup, self.context, self.log)
+            except Exception as error:
+                errors.append(f"environment: {describe(error)}")
         for adapter in reversed(self.prepared):
             try:
                 # Not limited by the execution deadline: cleanup must always get a chance.
@@ -367,6 +377,26 @@ class _Run:
     @property
     def _hook_limit(self) -> float:
         return max(HOOK_SECONDS, self.step_timeout) + GRACE_SECONDS
+
+    def _setup(self) -> Failure | None:
+        """The environment's setup requests; their failure stops the execution."""
+        self._setup_attempted = True
+        hooks = self.context.environment.setup
+        if not hooks:
+            return None
+        limit = max(PREPARE_SECONDS, self.step_timeout)
+        try:
+            with self._limited(limit, f"setup requests did not finish within {limit:g}s"):
+                run_hooks("setup", hooks, self.context, self.log)
+        except Exception as error:
+            self.log.event("setup-failed", error=describe(error))
+            _, classification = classify(error)
+            return Failure(
+                classification=classification,
+                message=f"environment setup failed: {describe(error)}",
+                error_type=type(error).__name__,
+            )
+        return None
 
     def _validate_and_prepare(self, specification: TestSpecification) -> Failure | None:
         spec_problems: list[str] = []

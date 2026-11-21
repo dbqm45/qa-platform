@@ -20,6 +20,11 @@ from qa_schemas.base import (
 
 VariableName = Annotated[str, StringConstraints(pattern=VARIABLE_NAME_PATTERN)]
 HeaderName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")]
+HookRequest = Annotated[
+    str,
+    StringConstraints(pattern=r"^(GET|HEAD|OPTIONS|POST|PUT|PATCH|DELETE) (/|https?://)\S*$"),
+]
+"""``METHOD path`` (or an absolute URL) sent before/after an execution, e.g. ``POST /reset``."""
 
 SENSITIVE_HEADERS = frozenset(
     {"authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key", "x-auth-token"}
@@ -63,6 +68,10 @@ class Environment(SchemaModel):
     """HTTP headers sent with every API request, e.g. ``{"X-Api-Key": "${SHOP_API_KEY}"}``."""
     protected: bool = False
     """Read-only: tests must not change data here unless ``--allow-writes`` is given."""
+    setup: tuple[HookRequest, ...] = ()
+    """Requests sent before every execution, e.g. to reset test data (TASK-056)."""
+    cleanup: tuple[HookRequest, ...] = ()
+    """Requests sent after every execution, also when it failed."""
 
     @model_validator(mode="after")
     def _no_plaintext_secrets(self) -> Self:

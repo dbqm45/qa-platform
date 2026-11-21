@@ -173,6 +173,10 @@ def project_show(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
             typer.echo(f"    variables  {', '.join(sorted(env.variables))}")
         for name, value in env.headers.items():
             typer.echo(f"    header     {name}: {value}")
+        for hook in env.setup:
+            typer.echo(f"    setup      {hook}")
+        for hook in env.cleanup:
+            typer.echo(f"    cleanup    {hook}")
 
     typer.echo("\nAdapters")
     for adapter in builtin_adapters().adapters:

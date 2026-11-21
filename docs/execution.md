@@ -119,6 +119,38 @@ its failure, and where the report, `results.json` and log are. A unique prefix
 of the id is enough; an unknown or ambiguous id exits with `1`. An execution
 interrupted before it finished has no `results.json`; `show` says so.
 
+### Setup and cleanup requests
+
+```yaml
+environments:
+  - name: local
+    services:
+      api: http://localhost:8000/api
+    setup: ["POST /reset"]      # before every execution
+    cleanup: ["POST /reset"]    # after every execution
+```
+
+Each entry is `METHOD path` (or `METHOD https://...`), sent in order to the
+environment's API service (`adapters.httpx.service`, default `api`) or else
+its `base_url`, with the environment's `headers`. `${NAME}` references work
+in the path. They run for every execution (each specification), whether its
+steps use the browser, the API or both, so every test starts from known data.
+
+- A failing setup request (no connection, or a status of 400 or more) stops
+  the execution before its first test case: every test case is `error` /
+  `environment_error` with `environment setup failed: setup POST /reset
+  answered 500`. Cleanup requests are still sent.
+- A failing cleanup request is recorded in `cleanup_errors` (shown as
+  `cleanup: environment: ...`) and never changes a test result.
+- Cleanup is skipped only when the execution never reached setup (e.g. the
+  browser could not start), because nothing could have changed.
+- Each request is logged (`hook-finished` with status and duration).
+- In a [protected environment](#protected-environments) requests other than
+  `GET`, `HEAD` and `OPTIONS` are not sent without `--allow-writes`.
+
+For data a single test creates, prefer [`${UNIQUE}`](steps.md#unique-test-data)
+over cleanup: unique data cannot collide even when cleanup fails.
+
 ### Protected environments
 
 ```yaml
