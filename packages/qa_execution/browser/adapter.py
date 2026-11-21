@@ -12,7 +12,6 @@ Evidence per test case, in ``<evidence dir>/<test case id>/``:
 """
 
 import json
-import re
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any
@@ -28,7 +27,12 @@ from playwright.sync_api import (
 from playwright.sync_api import Error as PlaywrightError
 from pydantic import ValidationError
 
-from qa_execution.adapters import AdapterNotPreparedError, ExecutionContext, TestAdapter
+from qa_execution.adapters import (
+    AdapterNotPreparedError,
+    ExecutionContext,
+    TestAdapter,
+    evidence_folder,
+)
 from qa_execution.browser.config import BrowserConfig, EvidenceMode
 from qa_execution.errors import TestEnvironmentError
 from qa_schemas.evidence import EvidenceReference
@@ -48,11 +52,6 @@ class BrowserSession:
     config: BrowserConfig
     timeout_seconds: float
     console_errors: list[str] = field(default_factory=list)
-
-
-def evidence_folder(test_case_id: str) -> str:
-    """Filesystem-safe folder name for a test case (``:`` is not allowed everywhere)."""
-    return re.sub(r"[^A-Za-z0-9._-]", "_", test_case_id)
 
 
 class PlaywrightAdapter(TestAdapter):

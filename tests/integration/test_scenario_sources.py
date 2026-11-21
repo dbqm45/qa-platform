@@ -56,11 +56,12 @@ def test_example_project_scenarios_are_discovered() -> None:
 
     assert result.ok
     assert [d.path for d in result.documents] == [
+        PurePosixPath("scenarios/api.feature"),
         PurePosixPath("scenarios/contact.feature"),
         PurePosixPath("scenarios/login.feature"),
     ]
     assert all(d.format is ScenarioFormat.GHERKIN for d in result.documents)
-    assert result.documents[1].content.startswith("@smoke\nFeature: Login")
+    assert result.documents[2].content.startswith("@smoke\nFeature: Login")
 
 
 # --- Discovery ---------------------------------------------------------------

@@ -4,8 +4,8 @@ Local-first QA automation platform. It turns Gherkin scenarios into normalized
 Test Specifications and executes them deterministically through adapters
 (Playwright for UI, HTTPX for APIs), producing results, evidence and reports.
 
-> **Status:** first milestone reached — Gherkin scenarios run end to end in a
-> browser, with evidence and an HTML report. API testing (Phase 8) is next.
+> **Status:** Gherkin scenarios run end to end in a browser (FE) and against JSON
+> APIs (BE), with evidence and an HTML report.
 
 ## Quick start
 
@@ -39,7 +39,8 @@ login.successful-login  (scenarios/login.feature:8)
 Ran 3 specifications from scenarios/login.feature on local: 3 passed
 ```
 
-Open the printed `report.html` in a browser. Try `contact.feature` too, or
+Open the printed `report.html` in a browser. Try `contact.feature` and
+`api.feature` (no browser needed) too, or
 change an expected text in a scenario to see a failure with a screenshot.
 
 ## Principles

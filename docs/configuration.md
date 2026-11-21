@@ -42,6 +42,11 @@ adapters:
     test_id_attribute: data-testid
     screenshot: on-failure     # off | on-failure | always
     trace: off                 # off | on-failure | always (traces are large)
+  httpx:
+    service: api               # environment service used as base URL (else base_url)
+    verify_tls: true
+    follow_redirects: false    # assert redirects explicitly by default
+    max_body_bytes: 10000      # body size kept as evidence per request/response
 ```
 
 Each section is validated by its adapter when an execution starts (unknown

@@ -84,6 +84,58 @@ Assertions wait up to the step timeout for the condition, then fail with what
 was actually found (`'Email' has value '', expected 'x'`). Values of password
 fields are masked in messages.
 
+### API requests (`http`, HTTPX)
+
+| Step | Action |
+|------|--------|
+| `the client sends <METHOD> "<url>"` | `api.send` |
+| `the client sends <METHOD> "<url>" with:` + JSON doc string | `api.send-json` |
+| `the client sets header "<name>" to "<value>"` | `api.header` (for the following requests) |
+| `the client uses the token from "<field>"` | `api.token-from`: a field of the last JSON response becomes the `Bearer` token |
+| `the client uses bearer token "<token>"` | `api.bearer` (use `${NAME}`) |
+
+`<METHOD>` is `GET`, `POST`, `PUT`, `PATCH` or `DELETE`. `<url>` is an absolute
+`http(s)://` URL or a path starting with `/`, resolved against the
+environment's `api` service (configurable), else its `base_url`. The JSON body
+is checked when compiling. Every test case gets a fresh client: no cookies,
+headers or tokens are shared between test cases.
+
+Example:
+
+```gherkin
+Given the client sends POST "/login" with:
+  """
+  {"username": "bob", "password": "${SHOP_PASSWORD}"}
+  """
+And the client uses the token from "token"
+When the client sends GET "/orders"
+Then the response status is 200
+And the response field "orders" has 0 items
+```
+
+### API assertions (`http`, expectations on the last response)
+
+| Step | Action |
+|------|--------|
+| `the response status is <code>` | `api.status` (100–599) |
+| `the response header "<name>" is "<value>"` / `contains "<text>"` | `api.header-is` / `api.header-contains` |
+| `the response field "<path>" is "<value>"` | `api.field-is` |
+| `the response field "<path>" exists` | `api.field-exists` |
+| `the response field "<path>" has <n> items` | `api.field-count` |
+| `the response body contains "<text>"` | `api.body-contains` |
+
+Paths: `status`, `order.total`, `orders[0].product`, `[1].id`. The expected
+value is read as JSON when it is valid JSON (`4`, `6.0`, `true`, `null`,
+`"\"4\""` for the string `"4"`), otherwise as text (`pear`); comparison is
+type-exact, so `4` does not match `4.0`.
+
+| Problem | Status | Classification |
+|---------|--------|----------------|
+| status, header, field or body differs; response is not JSON | failed | `application_bug` (message includes status, request and the start of the body) |
+| connection refused, DNS error, timeout | error | `environment_error` |
+| an assertion before any request | error | `test_implementation_error` |
+| invalid method, URL, path, header name or JSON body | blocked at compile time | — |
+
 ## Writing step definitions
 
 A step definition connects step text in scenarios to an implementation.
@@ -169,7 +221,8 @@ Specifications store the raw JSON values.
 ### Data tables and doc strings
 
 A step that needs the table or doc string written below it declares a
-keyword-only parameter with that exact name:
+keyword-only parameter with that exact name; its annotation validates the
+argument like any other parameter:
 
 ```python
 @registry.step("ui.fill", "the user fills the form:", kind=StepKind.ACTION, capability="browser")

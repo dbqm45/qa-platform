@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from qa_execution.browser.adapter import evidence_folder
+from qa_execution.adapters import evidence_folder
 from qa_execution.browser.config import BrowserConfig
 from qa_execution.browser.locators import DEFAULT_STRATEGIES, parse_locator
 

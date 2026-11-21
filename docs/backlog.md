@@ -62,14 +62,19 @@
 | TASK-042 | Done |
 | TASK-043 | Done |
 | TASK-044 | Done — screenshots, traces, console errors, page URL; failed step details are in the result |
-| TASK-031 | In progress — navigation, forms and UI assertion steps done; API and authentication steps in Phase 8 |
-| TASK-033 | In progress — browser steps covered by integration tests; API steps follow with Phase 8 |
+| TASK-031 | Done — navigation, forms, UI assertions, API requests and assertions, token authentication |
+| TASK-033 | Done |
 | TASK-070 | Done |
 | TASK-062 | Done |
 | TASK-059 | Done |
-| TASK-071 | In progress — login (success, invalid, lockout) and contact form (success, validation) done; API success / validation and UI-to-API scenarios need Phase 8 |
+| TASK-071 | In progress — login, contact form, API success and validation done; UI-to-API (FULL mode) remains |
 | TASK-072 | Done — first milestone reached (tests/integration/test_vertical_slice.py) |
-| TASK-066 | Done — HTTP header masking is ready for Phase 8; logs follow with TASK-037 |
+| TASK-066 | Done — logs follow with TASK-037 |
+| TASK-045 | Done |
+| TASK-046 | Done |
+| TASK-047 | Done |
+| TASK-048 | Done |
+| TASK-049 | Done |
 | TASK-050 | In progress — minimal: mode inference/validation, adapter selection; dependencies and FE/BE/FULL specifics in TASK-051..053 |
 | TASK-058 | In progress — metadata in SQLite and results.json per execution; retrieval command in TASK-063 |
 

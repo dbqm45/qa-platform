@@ -9,6 +9,7 @@ Independent of known values, two patterns are always masked:
 
 - URL query / form parameters with sensitive names (``password=...``,
   ``token=...``, ``api_key=...``, ...);
+- JSON string fields with such names (``"password": "..."``, ``"token": "..."``);
 - ``Authorization`` credentials (``Bearer ...``, ``Basic ...``).
 """
 
@@ -29,6 +30,7 @@ SENSITIVE_NAMES = (
     r"pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|auth|session|pin|otp"
 )
 _SENSITIVE_PARAMETER = re.compile(rf"(?i)\b({SENSITIVE_NAMES})=([^&\s'\"#]*)")
+_SENSITIVE_JSON_FIELD = re.compile(rf'(?i)("(?:{SENSITIVE_NAMES})"\s*:\s*)"((?:[^"\\]|\\.)*)"')
 _AUTHORIZATION = re.compile(r"(?i)\b(bearer|basic|token)\s+[A-Za-z0-9._~+/=-]{4,}")
 
 
@@ -58,6 +60,9 @@ class Redactor:
             text = text.replace(secret, MASK)
         text = _SENSITIVE_PARAMETER.sub(
             lambda m: f"{m.group(1)}={MASK}" if m.group(2) else m[0], text
+        )
+        text = _SENSITIVE_JSON_FIELD.sub(
+            lambda m: f'{m.group(1)}"{MASK}"' if m.group(2) else m[0], text
         )
         return _AUTHORIZATION.sub(lambda m: f"{m.group(1)} {MASK}", text)
 

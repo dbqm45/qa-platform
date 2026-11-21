@@ -150,4 +150,13 @@ For every test case the Playwright adapter writes to
 The files are listed in the test result's `evidence`. Collecting evidence
 never changes the outcome; problems are recorded as notes.
 
+## API evidence
+
+For every test case that sent requests, the HTTPX adapter writes
+`<test case id>/http.json`: each exchange with method, URL, request headers and
+body, response status, headers and body (truncated to `max_body_bytes`) and
+duration. `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`,
+`X-Api-Key` and `X-Auth-Token` are masked, and the file passes through the
+secret redactor.
+
 Not yet implemented: step and execution timeouts (TASK-067).

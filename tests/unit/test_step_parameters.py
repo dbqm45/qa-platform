@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 import pytest
-from pydantic import Field
+from pydantic import AfterValidator, Field
 
 from qa_core.steps.registry import (
     StepArguments,
@@ -212,3 +212,20 @@ def test_any_disables_validation() -> None:
 
     definition = StepRegistry().register("x.y", "v {}", handler, kind=A, capability="c")
     assert definition.bind({"value": "anything"}) == {"value": "anything"}
+
+
+def test_step_arguments_are_validated_by_their_annotations() -> None:
+    """Regression: data_table / doc_string were passed through without validation."""
+
+    def only_json(value: str) -> str:
+        if not value.startswith("{"):
+            raise ValueError("must be a JSON object")
+        return value
+
+    def handler(context: Any, *, doc_string: Annotated[str, AfterValidator(only_json)]) -> None: ...
+
+    definition = StepRegistry().register("x.body", "body:", handler, kind=A, capability="c")
+
+    assert definition.bind({}, StepArguments(doc_string='{"a": 1}')) == {"doc_string": '{"a": 1}'}
+    with pytest.raises(StepParameterError, match="invalid doc_string: must be a JSON object"):
+        definition.bind({}, StepArguments(doc_string="[1]"))

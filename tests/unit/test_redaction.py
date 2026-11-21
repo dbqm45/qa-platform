@@ -35,6 +35,12 @@ def test_very_short_values_are_not_masked_as_substrings() -> None:
         ("Authorization: Bearer eyJhbGciOi.payload.sig", f"Authorization: Bearer {MASK}"),
         ("basic dXNlcjpwYXNz", f"basic {MASK}"),
         ("nothing sensitive here: page=2&sort=asc", "nothing sensitive here: page=2&sort=asc"),
+        (
+            '{"username": "alice", "password": "pw"}',
+            f'{{"username": "alice", "password": "{MASK}"}}',
+        ),
+        ('{"token":"a\\"b", "name": "Alice"}', f'{{"token":"{MASK}", "name": "Alice"}}'),
+        ('{"Token": ""}', '{"Token": ""}'),
     ],
 )
 def test_sensitive_patterns_are_masked_without_known_values(text: str, expected: str) -> None:

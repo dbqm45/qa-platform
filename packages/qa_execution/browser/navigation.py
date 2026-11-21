@@ -13,35 +13,19 @@ scenario is compiled.
 """
 
 from collections.abc import Callable
-from typing import Annotated
-from urllib.parse import urlsplit
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, Response
-from pydantic import AfterValidator
 
 from qa_core.steps.registry import StepRegistry
 from qa_execution.browser.adapter import BrowserSession, first_line
 from qa_execution.errors import StepFailure, TestEnvironmentError
 from qa_execution.runner import StepContext
+from qa_execution.values import Url
 from qa_schemas.enums import StepKind
 
 CAPABILITY = "browser"
 _BLANK = "about:blank"
-
-
-def _check_url(value: str) -> str:
-    if value.startswith("/"):
-        return value
-    parts = urlsplit(value)
-    if parts.scheme in ("http", "https") and parts.netloc:
-        if parts.username or parts.password:
-            raise ValueError("URL must not contain credentials")
-        return value
-    raise ValueError("must be an http(s) URL or a path starting with '/'")
-
-
-Url = Annotated[str, AfterValidator(_check_url)]
 
 
 def open_url(context: StepContext, url: Url) -> None:

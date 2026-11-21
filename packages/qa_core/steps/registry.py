@@ -127,7 +127,11 @@ class StepDefinition:
                     f"the step has {label}, but {self.id!r} does not accept one"
                 )
             if accepted:
-                bound[name] = value
+                try:
+                    bound[name] = self._validators[name].validate_python(value)
+                except ValidationError as exc:
+                    message = exc.errors(include_url=False)[0]["msg"].removeprefix("Value error, ")
+                    raise StepParameterError(f"invalid {name}: {message}") from None
         return bound
 
 
@@ -198,7 +202,7 @@ class StepRegistry:
             accepts_data_table="data_table" in keyword_only,
             accepts_doc_string="doc_string" in keyword_only,
             _expression=expression,
-            _validators=_validators(step_id, handler, names),
+            _validators=_validators(step_id, handler, (*names, *sorted(keyword_only))),
         )
         self._definitions[step_id] = definition
         return definition

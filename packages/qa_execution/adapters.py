@@ -19,6 +19,7 @@ Lifecycle per execution::
     adapter.cleanup()                                 # always, also after failures
 """
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -48,6 +49,11 @@ class ExecutionContext:
 
     def config_for(self, adapter: str) -> Mapping[str, Any]:
         return self.adapter_config.get(adapter, {})
+
+
+def evidence_folder(test_case_id: str) -> str:
+    """Filesystem-safe folder for a test case's evidence (``:`` is not allowed everywhere)."""
+    return re.sub(r"[^A-Za-z0-9._-]", "_", test_case_id)
 
 
 class AdapterNotPreparedError(RuntimeError):

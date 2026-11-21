@@ -490,3 +490,16 @@ Redaction runs over free-text fields only (step texts, names, messages,
 notes, descriptions). Ids, statuses, actions and timestamps are structural:
 masking them would corrupt results (`login.wrong-password` with the secret
 `wrong` would stop being a valid id), and secrets never belong there.
+
+## API adapter (TASK-045..049)
+
+`qa_execution.http` mirrors the browser package: `HttpxAdapter` (capability
+`http`, settings `adapters.httpx`), `HttpSession` as the resource (client,
+extra headers, last response, recorded exchanges) and the request/assertion
+steps. A new `httpx.Client` per test case keeps test cases independent.
+Shared parameter types live in `qa_execution.values`, and `evidence_folder`
+moved to `qa_execution.adapters`, so the API package does not import
+Playwright. Specifications that need only `http` run in `be` mode.
+
+Step arguments (`data_table`, `doc_string`) are now validated through their
+annotations like text parameters; the JSON body check relies on it.

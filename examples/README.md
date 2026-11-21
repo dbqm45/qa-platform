@@ -4,7 +4,7 @@
 |------|------------|
 | `app/shop_app.py` | **Example Shop**, a small application to test the platform against |
 | `qa.yaml` | project configuration for the Example Shop |
-| `scenarios/` | Gherkin scenarios for the Example Shop: `login.feature`, `contact.feature` |
+| `scenarios/` | Gherkin scenarios for the Example Shop: `login.feature`, `contact.feature` (browser), `api.feature` (API) |
 | `specifications/`, `plans/` | sample Test Specification (compiled from the first login scenario) and Execution Plans, as schema reference |
 
 ## Example Shop
@@ -63,6 +63,10 @@ uv run qa test --scenario login.feature
 
 ```bash
 uv run qa test --scenario contact.feature
+```
+
+```bash
+uv run qa test --scenario api.feature
 ```
 
 The scenarios are repeatable without restarting the application: the

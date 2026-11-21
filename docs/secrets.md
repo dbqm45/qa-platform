@@ -37,6 +37,9 @@ names, failure messages, notes, evidence descriptions, cleanup errors) and in
 | values typed into a password field (`<input type="password">`) by `the user fills` | detected at run time, so literal test passwords are masked too |
 | values a step implementation marks with `context.mark_secret(value)` | custom steps |
 | `password=…`, `token=…`, `secret=…`, `api_key=…`, `auth=…`, `session=…`, `pin=…`, `otp=…` in URLs and form data | pattern, always |
+| the same names as JSON string fields: `"password": "…"`, `"token": "…"` | pattern, always (request and response bodies) |
+| tokens taken with `the client uses the token from` / `uses bearer token`, values of sensitive headers set with `sets header` | API steps |
+| `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, … headers in `http.json` | always |
 | `Bearer …`, `Basic …`, `Token …` credentials | pattern, always |
 
 Identifiers (specification, test case and plan ids), statuses and actions are

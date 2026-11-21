@@ -37,7 +37,7 @@ def _validate(project: Path) -> tuple[int, list[str]]:
 def test_example_project_is_valid() -> None:
     result = runner.invoke(app, ["scenario", "validate", "-c", str(ROOT / "examples/qa.yaml")])
     assert result.exit_code == 0, result.output
-    assert result.output == "Validated 2 files, 5 scenarios: 0 errors, 0 warnings\n"
+    assert result.output == "Validated 3 files, 9 scenarios: 0 errors, 0 warnings\n"
 
 
 def test_valid_scenarios(project: Path) -> None:
