@@ -58,6 +58,8 @@ runs:
         QA_ARGS: ${{ inputs.args }}
       run: |
         shopt -s globstar nullglob
+        # a fresh checkout has no .qa/ (it is not committed); init only adds what is missing
+        qa init . > /dev/null
         out="build/qa-summaries"
         rm -rf "$out" && mkdir -p "$out"
         read -ra extra <<< "$QA_ARGS"
@@ -97,7 +99,7 @@ runs:
 
     - name: Upload reports and evidence
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ${{ inputs.artifact-name }}
         path: |

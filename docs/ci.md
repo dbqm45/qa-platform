@@ -23,7 +23,8 @@ The action:
 1. installs the platform with the exact dependency versions of its
    `uv.lock` (as tested by the platform's own CI) and, unless
    `browser: "false"`, Chromium;
-2. runs `qa test --json` for every matching scenario file; one file that
+2. runs `qa init` (a fresh checkout has no `.qa/`; nothing existing is
+   changed), then `qa test --json` for every matching scenario file; one file that
    fails does not stop the others;
 3. writes the Markdown overview to the job summary and the plain overview to
    the log;
@@ -59,6 +60,7 @@ Output `ok` is `"true"` if everything passed.
 The same steps with the CLI, here for any shell-based pipeline:
 
 ```bash
+qa init .   # a fresh checkout has no .qa/; this only adds what is missing
 status=0
 for file in scenarios/*.feature; do
   qa test --scenario "$file" --environment staging --json "build/qa/$(basename "$file" .feature).json" || status=1
