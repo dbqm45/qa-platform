@@ -67,7 +67,7 @@
 | TASK-070 | Done |
 | TASK-062 | Done |
 | TASK-059 | Done |
-| TASK-071 | In progress — login, contact form, API success and validation done; UI-to-API (FULL mode) remains |
+| TASK-071 | Done |
 | TASK-072 | Done — first milestone reached (tests/integration/test_vertical_slice.py) |
 | TASK-066 | Done — logs follow with TASK-037 |
 | TASK-045 | Done |
@@ -77,6 +77,9 @@
 | TASK-049 | Done |
 | TASK-067 | Done — hard limits need POSIX + main thread (ADR-019) |
 | TASK-068 | Done |
+| TASK-053 | Done — FULL mode with correlated results and evidence; mocked dependencies are part of TASK-051 |
+| TASK-052 | Done — BE mode runs API scenarios without a browser |
+| TASK-051 | In progress — FE mode runs browser scenarios; mocked API dependencies not implemented |
 | TASK-050 | In progress — minimal: mode inference/validation, adapter selection; dependencies and FE/BE/FULL specifics in TASK-051..053 |
 | TASK-058 | In progress — metadata in SQLite and results.json per execution; retrieval command in TASK-063 |
 

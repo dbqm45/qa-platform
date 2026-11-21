@@ -6,7 +6,7 @@ Standard library only. UI and API are served from one port:
 
 UI                                        API (JSON)
   GET  /login, POST /login                  GET  /api/health
-  GET  /dashboard   (signed in)             POST /api/login      {username, password} -> token
+  GET  /dashboard   (orders)                POST /api/login      {username, password} -> token
   POST /logout                              GET  /api/orders     (Authorization: Bearer <token>)
   GET  /contact, POST /contact              POST /api/orders     {product, quantity}
                                             POST /api/reset      restore the initial state
@@ -136,10 +136,15 @@ def login_page(error: str = "", username: str = "") -> str:
     )
 
 
-def dashboard_page(name: str) -> str:
+def dashboard_page(name: str, orders: list[dict[str, Any]]) -> str:
+    items = "".join(
+        f"<li>{html.escape(str(o['product']))} (quantity {o['quantity']})</li>" for o in orders
+    )
+    listing = f"<ul>{items}</ul>" if orders else "<p>No orders yet</p>"
     return page(
         "Dashboard",
         f"""<h1>Dashboard</h1><p data-testid="greeting">Welcome, {html.escape(name)}</p>
+<section data-testid="orders"><h2>Your orders</h2>{listing}</section>
 <form method="post" action="/logout"><button type="submit">Log out</button></form>""",
     )
 
@@ -195,7 +200,8 @@ class ShopHandler(BaseHTTPRequestHandler):
             if username is None:
                 self._redirect("/login")
             else:
-                self._html(dashboard_page(USERS[username]["name"]))
+                own = [o for o in state.orders if o["user"] == username]
+                self._html(dashboard_page(USERS[username]["name"], own))
         elif path == "/contact":
             self._html(contact_page())
         elif path == "/api/health":

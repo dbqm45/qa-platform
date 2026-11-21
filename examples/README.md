@@ -4,7 +4,7 @@
 |------|------------|
 | `app/shop_app.py` | **Example Shop**, a small application to test the platform against |
 | `qa.yaml` | project configuration for the Example Shop |
-| `scenarios/` | Gherkin scenarios for the Example Shop: `login.feature`, `contact.feature` (browser), `api.feature` (API) |
+| `scenarios/` | Gherkin scenarios for the Example Shop: `login.feature`, `contact.feature` (browser), `api.feature` (API), `orders.feature` (API + browser) |
 | `specifications/`, `plans/` | sample Test Specification (compiled from the first login scenario) and Execution Plans, as schema reference |
 
 ## Example Shop
@@ -20,7 +20,7 @@ Then open <http://localhost:8000/login>.
 | UI | Purpose |
 |----|---------|
 | `/login` | sign-in form (Username, Password, "Log in" with `data-testid="login-button"`) |
-| `/dashboard` | "Welcome, <name>" (`data-testid="greeting"`), requires sign-in |
+| `/dashboard` | "Welcome, <name>" (`data-testid="greeting"`) and the user's orders (`data-testid="orders"`, e.g. "apple (quantity 3)"), requires sign-in |
 | `/contact` | contact form: Name, Email, Topic (select), Message, consent checkbox |
 
 | API | Purpose |
@@ -67,6 +67,10 @@ uv run qa test --scenario contact.feature
 
 ```bash
 uv run qa test --scenario api.feature
+```
+
+```bash
+uv run qa test --scenario orders.feature
 ```
 
 The scenarios are repeatable without restarting the application: the

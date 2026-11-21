@@ -268,3 +268,19 @@ def test_unknown_routes(url: str) -> None:
     assert _request(f"{url}/nope")[0] == 404
     status, _, text = _request(f"{url}/api/nope")
     assert (status, json.loads(text)) == (404, {"error": "Not found"})
+
+
+def test_dashboard_lists_the_users_orders(url: str) -> None:
+    _, headers, _ = _sign_in(url, "alice", "correct-password")
+    cookie = {"Cookie": headers["Set-Cookie"].split(";")[0]}
+    assert "No orders yet" in _request(f"{url}/dashboard", headers=cookie)[2]
+
+    auth = {"Authorization": f"Bearer {_token(url)}"}
+    _request(f"{url}/api/orders", "POST", body={"product": "apple", "quantity": 3}, headers=auth)
+    bob = {"Authorization": f"Bearer {_token(url, 'bob', 'bob-password')}"}
+    _request(f"{url}/api/orders", "POST", body={"product": "plum", "quantity": 1}, headers=bob)
+
+    text = _request(f"{url}/dashboard", headers=cookie)[2]
+    assert 'data-testid="orders"' in text
+    assert "<li>apple (quantity 3)</li>" in text
+    assert "plum" not in text

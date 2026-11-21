@@ -40,6 +40,7 @@ EXPECTED_CASES = {
     "api.invalid-orders-are-rejected-problem:1",
     "api.invalid-orders-are-rejected-problem:2",
     "api.orders-need-a-valid-token",
+    "orders.an-order-placed-through-the-api-appears-on-the-dashboard",
 }
 
 
@@ -73,7 +74,7 @@ def _reports(project: Path, output: str) -> list[ExecutionReport]:
 
 def _run_examples(project: Path) -> list[ExecutionReport]:
     reports = []
-    for scenario in ("login.feature", "contact.feature", "api.feature"):
+    for scenario in ("login.feature", "contact.feature", "api.feature", "orders.feature"):
         code, output = _qa("test", "--scenario", scenario, "--environment", "local")
         assert code == 0, output
         reports.extend(_reports(project, output))
@@ -87,12 +88,12 @@ def test_complete_vertical_slice(project: Path) -> None:
 
     # Gherkin file -> Scenario Parser (validation)
     code, output = _qa("scenario", "validate")
-    assert (code, output.strip()) == (0, "Validated 3 files, 9 scenarios: 0 errors, 0 warnings")
+    assert (code, output.strip()) == (0, "Validated 4 files, 10 scenarios: 0 errors, 0 warnings")
 
     # -> Test Specification -> Step Registry (compilation)
     code, output = _qa("scenario", "compile")
     assert code == 0, output
-    assert "Compiled 9 specifications from 3 files: 9 ready" in output
+    assert "Compiled 10 specifications from 4 files: 10 ready" in output
     compiled = CompiledSpecification.model_validate_json(
         (project / ".qa/specifications/login.successful-login.json").read_text()
     )
@@ -110,22 +111,31 @@ def test_complete_vertical_slice(project: Path) -> None:
     assert set(results) == EXPECTED_CASES
     assert {r.status for r in results.values()} == {ExecutionStatus.PASSED}
     modes = {r.execution.specification_id.split(".")[0]: r.execution.mode.value for r in reports}
-    assert modes == {"login": "fe", "contact": "fe", "api": "be"}  # inferred from the steps
+    assert modes == {"login": "fe", "contact": "fe", "api": "be", "orders": "full"}
 
     for report in reports:
         directory = project / ".qa/executions" / report.execution.id
         # -> Evidence
         for result in report.results:
             evidence = directory / result.test_case_id.replace(":", "_")
-            if report.execution.mode.value == "fe":
+            mode = report.execution.mode.value
+            if mode in ("fe", "full"):
                 page = json.loads((evidence / "page.json").read_text())
                 assert page["url"].startswith("http://127.0.0.1")
-            else:
+            if mode in ("be", "full"):
                 exchanges = json.loads((evidence / "http.json").read_text())["exchanges"]
-                assert exchanges and "bob-password" not in json.dumps(exchanges)
+                assert exchanges
+                assert "bob-password" not in json.dumps(exchanges)
+                assert "correct-password" not in json.dumps(exchanges)
         # -> HTML Report
         html = (directory / "report.html").read_text()
         assert report.execution.id in html and "status passed" in html
+
+    # FULL mode: one test case correlates API and UI steps and evidence
+    full = results["orders.an-order-placed-through-the-api-appears-on-the-dashboard"]
+    capabilities = {step.action.split(".")[0] for step in full.steps if step.action}
+    assert capabilities == {"api", "browser", "ui"}
+    assert {ref.kind for ref in full.evidence} >= {"page-info", "http-exchanges"}
 
     # Execution history survives in the local database
     with open_database(project / ".qa/qa.db") as db:

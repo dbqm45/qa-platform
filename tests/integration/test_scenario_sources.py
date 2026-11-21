@@ -59,6 +59,7 @@ def test_example_project_scenarios_are_discovered() -> None:
         PurePosixPath("scenarios/api.feature"),
         PurePosixPath("scenarios/contact.feature"),
         PurePosixPath("scenarios/login.feature"),
+        PurePosixPath("scenarios/orders.feature"),
     ]
     assert all(d.format is ScenarioFormat.GHERKIN for d in result.documents)
     assert result.documents[2].content.startswith("@smoke\nFeature: Login")

@@ -64,7 +64,14 @@ from the capabilities the steps need:
 | `contract` | not implemented yet | never |
 
 An explicit mode that does not fit (e.g. `--mode be` for browser steps) is
-rejected and the specification is not executed. Only the `functional`
+rejected and the specification is not executed.
+
+In `full` mode one test case uses both adapters: steps run in order against
+the browser and the API, the result lists all of them, and the test case's
+evidence folder holds both `page.json` (and screenshots) and `http.json`.
+Example: `examples/scenarios/orders.feature` places an order through the API
+and checks it on the dashboard. Mocked dependencies (`dependencies: mock`)
+are not implemented yet; all dependencies are real. Only the `functional`
 category is supported so far.
 
 The Local Runner executes a compiled specification in the current process.
