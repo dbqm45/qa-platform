@@ -213,6 +213,11 @@ uv run qa test --scenario login.feature --environment local
 Compiles the file, executes its ready specifications in a browser and stores
 results and evidence in `.qa/executions/<id>/`. Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
 
+## Secrets
+
+Reference credentials as `${NAME}` environment variables; secrets are masked in
+results, reports and evidence. See [`docs/secrets.md`](docs/secrets.md).
+
 ## Configuration
 
 Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).

@@ -474,3 +474,19 @@ change it waits for.
 it as `report.html` next to the evidence. `qa_reporting` depends only on
 `qa_schemas` (see the dependency table), so reports never require re-running
 tests. All values are HTML-escaped.
+
+## Secret references and redaction (TASK-066)
+
+`qa_core.redaction` resolves `${NAME}` references and provides `Redactor`.
+Each execution creates one redactor and passes it in `ExecutionContext`:
+the runner resolves references just before binding step arguments, steps can
+add values with `StepContext.mark_secret()`, the browser adapter redacts
+`page.json`, and `runner.redact_report()` masks the free-text fields of the
+final report. User-facing description: [`secrets.md`](secrets.md).
+
+### ADR-018: Redact free text, never structure
+
+Redaction runs over free-text fields only (step texts, names, messages,
+notes, descriptions). Ids, statuses, actions and timestamps are structural:
+masking them would corrupt results (`login.wrong-password` with the secret
+`wrong` would stop being a valid id), and secrets never belong there.

@@ -134,7 +134,8 @@ class PlaywrightAdapter(TestAdapter):
                 "title": _safe(page.title, ""),
                 "console_errors": session.console_errors,
             }
-            (directory / "page.json").write_text(json.dumps(info, indent=2) + "\n")
+            text = json.dumps(execution.redactor.redact_data(info), indent=2) + "\n"
+            (directory / "page.json").write_text(text)
             evidence.append(
                 _ref("page-info", folder, "page.json", "final URL, title and console errors")
             )

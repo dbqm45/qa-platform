@@ -530,3 +530,155 @@ def test_local_target_runs_in_process(tmp_path: Path) -> None:
     )
     assert target.name == "local"
     assert report.execution.status is S.PASSED
+
+
+# --- Secrets (TASK-066) ------------------------------------------------------
+
+
+def _secret_step(context: StepContext, value: str) -> None:
+    EVENTS.append(f"secret-step:{value}")
+    if value.startswith("leak"):
+        raise StepFailure(f"server echoed {value!r} back")
+
+
+def _secret_steps() -> StepRegistry:
+    steps = _steps()
+    steps.register(
+        "t.secret",
+        "the user types {string}",
+        _secret_step,
+        kind=StepKind.ACTION,
+        capability="browser",
+    )
+    return steps
+
+
+def _secret_runner(tmp_path: Path, variables: dict[str, str]) -> LocalRunner:
+    return LocalRunner(
+        _secret_steps(),
+        AdapterRegistry([Browser, Http]),
+        evidence_root=tmp_path,
+        environment_variables=variables,
+    )
+
+
+def _secret_compiled(*steps: str) -> CompiledSpecification:
+    content = "Feature: F\n  Scenario: S\n" + "\n".join(f"    {s}" for s in steps) + "\n"
+    document = ScenarioDocument(
+        path=PurePosixPath("scenarios/f.feature"), format=ScenarioFormat.GHERKIN,
+        content=content, content_hash=content_hash(content.encode()),
+    )  # fmt: skip
+    [compiled] = compile_documents([parse_document(document)], _secret_steps()).specifications
+    return compiled
+
+
+def test_secret_reference_is_resolved_only_at_execution(tmp_path: Path) -> None:
+    compiled = _secret_compiled('When the user types "${SHOP_PASSWORD}"', 'Then outcome "pass"')
+    assert compiled.specification.test_cases[0].steps[0].parameters == {"value": "${SHOP_PASSWORD}"}
+    runner = _secret_runner(tmp_path, {"SHOP_PASSWORD": "hunter2-xyz"})
+
+    report = runner.run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+
+    assert "secret-step:hunter2-xyz" in EVENTS
+    assert report.execution.status is S.PASSED
+    assert "hunter2-xyz" not in report.model_dump_json()
+    assert report.results[0].steps[0].text == 'the user types "${SHOP_PASSWORD}"'
+
+
+def test_secret_values_are_masked_in_failure_messages(tmp_path: Path) -> None:
+    compiled = _secret_compiled('When the user types "${TOKEN}"', 'Then outcome "pass"')
+    runner = _secret_runner(tmp_path, {"TOKEN": "leak-me-please"})
+
+    report = runner.run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+
+    failure = report.results[0].failure
+    assert failure is not None
+    assert failure.message == "server echoed '********' back"
+    assert "leak-me-please" not in report.model_dump_json()
+
+
+def test_missing_secret_is_an_environment_error(tmp_path: Path) -> None:
+    compiled = _secret_compiled('When the user types "${MISSING}"', 'Then outcome "pass"')
+    report = _secret_runner(tmp_path, {}).run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+    failure = report.results[0].failure
+    assert failure is not None
+    assert failure.classification is C.ENVIRONMENT_ERROR
+    assert failure.message.startswith("secret MISSING is not set")
+    assert not any(e.startswith("secret-step") for e in EVENTS)
+
+
+def test_steps_can_mark_values_as_secret(tmp_path: Path) -> None:
+    def typed_password(context: StepContext, value: str) -> None:
+        context.mark_secret(value)
+        raise StepFailure(f"login with {value} failed")
+
+    steps = _steps()
+    steps.register(
+        "t.pw",
+        "the password is {string}",
+        typed_password,
+        kind=StepKind.ACTION,
+        capability="browser",
+    )
+    content = (
+        'Feature: F\n  Scenario: S\n    When the password is "literal-pass"\n'
+        '    Then outcome "pass"\n'
+    )
+    document = ScenarioDocument(
+        path=PurePosixPath("scenarios/f.feature"), format=ScenarioFormat.GHERKIN,
+        content=content, content_hash=content_hash(content.encode()),
+    )  # fmt: skip
+    [compiled] = compile_documents([parse_document(document)], steps).specifications
+    runner = LocalRunner(steps, AdapterRegistry([Browser, Http]), evidence_root=tmp_path)
+
+    report = runner.run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+
+    assert "literal-pass" not in report.model_dump_json()
+    assert report.results[0].steps[0].text == 'the password is "********"'
+
+
+def test_secrets_never_corrupt_identifiers(tmp_path: Path) -> None:
+    """A literal password that is a common word ('wrong') must not alter ids."""
+
+    def typed_password(context: StepContext, value: str) -> None:
+        context.mark_secret(value)
+        raise StepFailure(f"{value} password rejected")
+
+    steps = _steps()
+    steps.register(
+        "t.pw",
+        "the password is {string}",
+        typed_password,
+        kind=StepKind.ACTION,
+        capability="browser",
+    )
+    content = (
+        'Feature: F\n  Scenario: Wrong password\n    When the password is "wrong"\n'
+        '    Then outcome "pass"\n'
+    )
+    document = ScenarioDocument(
+        path=PurePosixPath("scenarios/f.feature"), format=ScenarioFormat.GHERKIN,
+        content=content, content_hash=content_hash(content.encode()),
+    )  # fmt: skip
+    [compiled] = compile_documents([parse_document(document)], steps).specifications
+    runner = LocalRunner(steps, AdapterRegistry([Browser, Http]), evidence_root=tmp_path)
+
+    report = runner.run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+
+    [result] = report.results
+    assert report.execution.specification_id == "scenarios.f.wrong-password"
+    assert result.test_case_id == "scenarios.f.wrong-password"
+    assert result.steps[0].action == "t.pw"
+    assert result.name == "Wrong password"  # secrets are case-sensitive values
+    assert result.failure is not None
+    assert result.failure.message == "******** password rejected"

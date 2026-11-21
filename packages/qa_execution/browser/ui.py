@@ -69,6 +69,8 @@ def click(context: StepContext, element: Element) -> None:
 
 def fill(context: StepContext, element: Element, value: str) -> None:
     browser, target = _element(context, element)
+    if _act(browser, "read the field type", lambda: target.get_attribute("type")) == "password":
+        context.mark_secret(value)  # masked in results, reports and evidence
     _act(browser, f"fill {element!r}", lambda: target.fill(value))
 
 

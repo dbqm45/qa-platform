@@ -13,6 +13,7 @@ A step implementation receives a :class:`StepContext` and obtains the resource
 it needs with ``context.resource("browser")``.
 """
 
+import os
 import secrets
 import time
 from collections.abc import Callable, Mapping
@@ -21,9 +22,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from qa_core.redaction import MissingSecretError, Redactor, resolve_references
 from qa_core.steps.registry import StepArguments, StepParameterError, StepRegistry
 from qa_execution.adapters import ExecutionContext, TestAdapter
-from qa_execution.errors import classify, describe
+from qa_execution.errors import TestEnvironmentError, classify, describe
 from qa_execution.registry import AdapterRegistry, AdapterSelection, AdapterSelectionError
 from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.enums import ExecutionStatus, FailureClassification
@@ -73,6 +75,10 @@ class StepContext:
     step: Step
     _providers: dict[str, TestAdapter] = field(repr=False)
 
+    def mark_secret(self, value: str) -> None:
+        """Treat ``value`` as a secret: it is masked in results, reports and evidence."""
+        self.execution.redactor.add(value)
+
     def resource(self, capability: str) -> Any:
         """The resource of the adapter that provides ``capability``."""
         adapter = self._providers.get(capability)
@@ -92,8 +98,10 @@ class LocalRunner:
         clock: Clock = lambda: datetime.now(UTC),
         id_factory: Callable[[datetime], str] = new_execution_id,
         adapter_config: Mapping[str, Mapping[str, Any]] | None = None,
+        environment_variables: Mapping[str, str] | None = None,
     ) -> None:
         self._adapter_config = dict(adapter_config or {})
+        self._variables = environment_variables if environment_variables is not None else os.environ
         self._steps = steps
         self._adapters = adapters
         self._evidence_root = evidence_root
@@ -130,6 +138,7 @@ class LocalRunner:
             settings=plan.settings,
             evidence_dir=evidence_dir,
             adapter_config=self._adapter_config,
+            redactor=Redactor(),
         )
         adapters = [adapter_class() for adapter_class in selection.adapters]
         providers = {
@@ -138,7 +147,7 @@ class LocalRunner:
         }
 
         execution = self._transition(execution, S.RUNNING, started_at=self._clock())
-        run = _Run(self._steps, self._clock, context, adapters, providers)
+        run = _Run(self._steps, self._clock, context, adapters, providers, self._variables)
         try:
             results, failure = run.execute(spec, plan.settings.fail_fast)
         except KeyboardInterrupt:
@@ -147,12 +156,14 @@ class LocalRunner:
             raise
         cleanup_errors = run.cleanup()
 
-        return ExecutionReport(
+        report = ExecutionReport(
             execution=self._finish(execution, _overall(results, failure)),
             results=tuple(results),
             failure=failure,
             cleanup_errors=tuple(cleanup_errors),
         )
+        # Secrets become known while steps run, so free text is masked at the end.
+        return redact_report(report, context.redactor)
 
     # --- Internals -----------------------------------------------------------
 
@@ -219,7 +230,9 @@ class _Run:
         context: ExecutionContext,
         adapters: list[TestAdapter],
         providers: dict[str, TestAdapter],
+        variables: Mapping[str, str],
     ) -> None:
+        self.variables = variables
         self.steps = steps
         self.clock = clock
         self.context = context
@@ -373,6 +386,9 @@ class _Run:
         )
         return result, failure
 
+    def _resolve(self, text: str) -> str:
+        return resolve_references(text, self.variables, self.context.redactor)
+
     def _prepare_step(self, step: Step) -> tuple[Callable[..., Any], dict[str, Any]]:
         if step.action is None:
             raise _PlatformError("step is not resolved; the specification should not be READY")
@@ -381,12 +397,23 @@ class _Run:
             raise _PlatformError(
                 f"step definition {step.action!r} is not registered; recompile the scenarios"
             )
-        arguments = StepArguments(
-            data_table=step.data_table,
-            doc_string=step.doc_string.content if step.doc_string else None,
-        )
         try:
-            kwargs = definition.bind(step.parameters, arguments)
+            parameters = {
+                name: self._resolve(value) if isinstance(value, str) else value
+                for name, value in step.parameters.items()
+            }
+            arguments = StepArguments(
+                data_table=(
+                    tuple(tuple(self._resolve(cell) for cell in row) for row in step.data_table)
+                    if step.data_table is not None
+                    else None
+                ),
+                doc_string=self._resolve(step.doc_string.content) if step.doc_string else None,
+            )
+        except MissingSecretError as error:
+            raise TestEnvironmentError(str(error)) from None
+        try:
+            kwargs = definition.bind(parameters, arguments)
         except StepParameterError as error:
             raise _PlatformError(f"{definition.id}: {error}") from None
         return definition.handler, kwargs
@@ -428,4 +455,40 @@ def _cancelled(case: TestCase, reason: str) -> TestResult:
         status=S.CANCELLED,
         steps_total=len(case.steps),
         notes=(reason,),
+    )
+
+
+def redact_report(report: ExecutionReport, redactor: Redactor) -> ExecutionReport:
+    """Mask secrets in every free-text field of a report.
+
+    Identifiers, statuses, actions and timestamps are structural data and are
+    left untouched: a secret that happens to be a common word (``wrong``) must
+    not corrupt ids such as ``login.wrong-password``.
+    """
+    text = redactor.redact
+
+    def failure(value: Failure | None) -> Failure | None:
+        return None if value is None else value.model_copy(update={"message": text(value.message)})
+
+    results = tuple(
+        result.model_copy(
+            update={
+                "name": text(result.name),
+                "steps": tuple(s.model_copy(update={"text": text(s.text)}) for s in result.steps),
+                "failure": failure(result.failure),
+                "notes": tuple(text(note) for note in result.notes),
+                "evidence": tuple(
+                    e.model_copy(update={"description": text(e.description)})
+                    for e in result.evidence
+                ),
+            }
+        )
+        for result in report.results
+    )
+    return report.model_copy(
+        update={
+            "results": results,
+            "failure": failure(report.failure),
+            "cleanup_errors": tuple(text(error) for error in report.cleanup_errors),
+        }
     )

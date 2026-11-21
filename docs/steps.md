@@ -76,6 +76,10 @@ step **failed** with Playwright's reason; a closed browser is an
 | `"<element>" is enabled` / `"<element>" is disabled` | `ui.enabled` / `ui.disabled` |
 | `"<element>" has value "<value>"` | `ui.value` |
 
+Values typed into password fields are treated as secrets and masked in
+results and evidence. Reference real credentials as `${NAME}` (see
+[`secrets.md`](secrets.md)).
+
 Assertions wait up to the step timeout for the condition, then fail with what
 was actually found (`'Email' has value '', expected 'x'`). Values of password
 fields are masked in messages.
@@ -122,6 +126,12 @@ def sign_in(context, username: str, password: str) -> None: ...
 Other Cucumber types (`{biginteger}`, `{bigdecimal}`, …) are rejected so that
 values stay plain JSON. In regular expressions, a group whose regex is the
 same as a built-in type is converted like it (`(\d+)` → `int`).
+
+## Secrets in custom steps
+
+Call `context.mark_secret(value)` for any value that must not appear in
+results, reports or evidence. Values from `${NAME}` references are marked
+automatically.
 
 ## Parameter validation
 

@@ -221,3 +221,26 @@ def test_evidence_does_not_change_the_outcome(run: Any) -> None:
     failed = run('Then the page shows "Goodbye"', screenshot="off")
     assert _only(passed).status is S.PASSED
     assert _only(failed).status is S.FAILED
+
+
+# --- Secrets (TASK-066) ------------------------------------------------------
+
+
+def test_password_typed_into_a_field_never_reaches_results_or_evidence(
+    run: Any, tmp_path: Path
+) -> None:
+    """The form is submitted with GET, so the password also ends up in the URL."""
+    report = run(
+        'When the user fills "Email" with "alice@example.com"',
+        'And the user fills "Password" with "s3cret-value"',
+        'And the user clicks "Log in"',
+        'Then the URL contains "/nowhere"',
+    )
+
+    assert _only(report).status is S.FAILED
+    assert "s3cret-value" not in report.model_dump_json()
+    assert "password=********" in _message(report)
+    assert 'the user fills "Password" with "********"' in [s.text for s in _only(report).steps]
+    page_info = _evidence(tmp_path, report)["page-info"].read_text()
+    assert "s3cret-value" not in page_info
+    assert "password=********" in page_info

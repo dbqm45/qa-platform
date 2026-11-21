@@ -48,9 +48,8 @@ evidence. Links are relative, so the execution folder can be archived or shared
 as a whole. The report is built only from `results.json` and can be regenerated
 with `qa_reporting.html.write_html_report()`.
 
-> **Known limitation until TASK-066:** step texts are shown as written, so a
-> step like `the user fills "Password" with "..."` puts that value into
-> `results.json` and `report.html`. Use test credentials only.
+Secrets are masked in `results.json`, `report.html` and evidence; reference
+real credentials as `${NAME}` (see [`secrets.md`](secrets.md)).
 
 ### Execution Plans and modes
 
