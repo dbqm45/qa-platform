@@ -25,3 +25,7 @@ project:
       services:
         api: https://api.staging.example.com
       timeout_seconds: 60
+      # variables:                       # plain values for ${NAME} in scenarios
+      #   SHOP_USER: qa-bot
+      # headers:                         # sent with every API request
+      #   X-Api-Key: ${SHOP_API_KEY}     # secrets only as ${NAME} references

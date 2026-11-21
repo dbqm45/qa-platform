@@ -36,10 +36,11 @@ from pydantic import AfterValidator, Field
 
 from qa_core.steps.registry import StepHandler, StepRegistry
 from qa_execution.errors import ClassifiedError, StepFailure, TestDataError
-from qa_execution.http.adapter import SENSITIVE_HEADERS, HttpSession
+from qa_execution.http.adapter import HttpSession
 from qa_execution.runner import StepContext
 from qa_execution.values import Url
 from qa_schemas.enums import StepKind
+from qa_schemas.project import SENSITIVE_HEADERS
 
 CAPABILITY = "http"
 _BODY_PREVIEW = 300

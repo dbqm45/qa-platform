@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
-from qa_core.redaction import Redactor
+from qa_core.redaction import Redactor, resolve_references
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.plan import ExecutionSettings
 from qa_schemas.project import Environment
@@ -46,9 +46,20 @@ class ExecutionContext:
     """Settings from ``qa.yaml`` ``adapters:``, by adapter name."""
     redactor: Redactor = field(default_factory=Redactor)
     """Masks this execution's secrets; adapters apply it to evidence they write."""
+    secret_source: Mapping[str, str] = field(default_factory=dict)
+    """Where ``${NAME}`` secrets come from (normally the process environment)."""
 
     def config_for(self, adapter: str) -> Mapping[str, Any]:
         return self.adapter_config.get(adapter, {})
+
+    def resolve(self, text: str) -> str:
+        """Resolve ``${NAME}``: environment ``variables`` first, then secrets.
+
+        Raises ``MissingSecretError`` for an unknown name.
+        """
+        return resolve_references(
+            text, self.secret_source, self.redactor, self.environment.variables
+        )
 
 
 def evidence_folder(test_case_id: str) -> str:

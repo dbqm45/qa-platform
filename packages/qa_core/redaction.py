@@ -17,18 +17,17 @@ import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from qa_schemas.base import REFERENCE_PATTERN, SENSITIVE_NAMES
+
 MASK = "********"
 
-SECRET_REFERENCE = re.compile(r"\$\{([A-Z_][A-Z0-9_]*)\}")
+SECRET_REFERENCE = re.compile(REFERENCE_PATTERN)
 """``${NAME}`` -- an environment variable holding a secret."""
 
 MIN_SECRET_LENGTH = 4
 """Shorter values are not masked as substrings (they would hide unrelated text);
 the patterns below still mask them in parameters and headers."""
 
-SENSITIVE_NAMES = (
-    r"pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|auth|session|pin|otp"
-)
 _SENSITIVE_PARAMETER = re.compile(rf"(?i)\b({SENSITIVE_NAMES})=([^&\s'\"#]*)")
 _SENSITIVE_JSON_FIELD = re.compile(rf'(?i)("(?:{SENSITIVE_NAMES})"\s*:\s*)"((?:[^"\\]|\\.)*)"')
 _AUTHORIZATION = re.compile(r"(?i)\b(bearer|basic|token)\s+[A-Za-z0-9._~+/=-]{4,}")
@@ -77,11 +76,25 @@ class Redactor:
         return data
 
 
-def resolve_references(text: str, environment: Mapping[str, str], redactor: Redactor) -> str:
-    """Replace ``${NAME}`` with its value and register the value as a secret."""
+def resolve_references(
+    text: str,
+    environment: Mapping[str, str],
+    redactor: Redactor,
+    plain: Mapping[str, str] | None = None,
+) -> str:
+    """Replace ``${NAME}`` with its value.
+
+    ``plain`` (an environment's ``variables`` from ``qa.yaml``) is looked up
+    first and is not secret. Otherwise the value comes from ``environment``
+    (the process environment), is treated as a secret and registered with the
+    redactor.
+    """
+    plain = plain or {}
 
     def value_of(match: re.Match[str]) -> str:
         name = match.group(1)
+        if name in plain:
+            return plain[name]
         if name not in environment:
             raise MissingSecretError(name)
         value = environment[name]

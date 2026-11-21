@@ -1,11 +1,32 @@
-"""Project-level domain models: Project, Repository, Environment (TASK-006)."""
+"""Project-level domain models: Project, Repository, Environment (TASK-006, TASK-055)."""
 
+import re
 from pathlib import Path
 from typing import Annotated, Self
 
-from pydantic import Field, PositiveFloat, model_validator
+from pydantic import Field, PositiveFloat, StringConstraints, model_validator
 
-from qa_schemas.base import Identifier, NonEmptyStr, SafeHttpUrl, SchemaModel, find_duplicates
+from qa_schemas.base import (
+    REFERENCE_PATTERN,
+    SENSITIVE_NAMES,
+    VARIABLE_NAME_PATTERN,
+    Identifier,
+    NonEmptyStr,
+    SafeHttpUrl,
+    SchemaModel,
+    find_duplicates,
+)
+
+VariableName = Annotated[str, StringConstraints(pattern=VARIABLE_NAME_PATTERN)]
+HeaderName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")]
+
+SENSITIVE_HEADERS = frozenset(
+    {"authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key", "x-auth-token"}
+)
+"""Headers whose values are credentials: masked in evidence, never plain in qa.yaml."""
+
+_SENSITIVE = re.compile(rf"(?i)(?:{SENSITIVE_NAMES}|key)")
+_REFERENCE = re.compile(REFERENCE_PATTERN)
 
 
 class Repository(SchemaModel):
@@ -34,6 +55,27 @@ class Environment(SchemaModel):
     """Named service endpoints, e.g. ``{"api": "http://localhost:8000"}``."""
     timeout_seconds: Annotated[PositiveFloat, Field(le=3600)] = 30.0
     """Default timeout for operations against this environment."""
+    variables: dict[VariableName, str] = Field(default_factory=dict)
+    """Plain values for ``${NAME}`` references in scenarios, e.g. ``{"SHOP_USER": "alice"}``.
+    Not secret: they appear in results. Secrets come from environment variables."""
+    headers: dict[HeaderName, str] = Field(default_factory=dict)
+    """HTTP headers sent with every API request, e.g. ``{"X-Api-Key": "${SHOP_API_KEY}"}``."""
+
+    @model_validator(mode="after")
+    def _no_plaintext_secrets(self) -> Self:
+        for name in self.variables:
+            if _SENSITIVE.search(name):
+                raise ValueError(
+                    f"variable {name} looks like a secret; do not put secrets in qa.yaml, "
+                    f"export {name} as an environment variable instead"
+                )
+        for name, value in self.headers.items():
+            if name.lower() in SENSITIVE_HEADERS and not _REFERENCE.search(value):
+                raise ValueError(
+                    f"header {name} must reference a secret, e.g. ${{SHOP_API_KEY}}, "
+                    "instead of containing the value"
+                )
+        return self
 
 
 class Project(SchemaModel):

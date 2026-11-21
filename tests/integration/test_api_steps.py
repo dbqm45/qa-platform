@@ -285,3 +285,50 @@ def test_exchanges_are_recorded_with_secrets_masked(run: Any, tmp_path: Path) ->
     token_free = json.loads(login["response"]["body"])
     assert token_free["token"] == "********"
     assert "correct-password" not in report.model_dump_json()
+
+
+# --- Environment headers (TASK-055) ------------------------------------------
+
+
+def _with_headers(
+    shop_server: Any, tmp_path: Path, headers: dict[str, str], secrets: dict[str, str]
+) -> ExecutionReport:
+    compiled = _compile(
+        _steps('When the client sends GET "/health"', "Then the response status is 200")
+    )
+    services: dict[str, Any] = {"api": f"{shop_server.url}/api"}
+    environment = Environment(name="qa", services=services, headers=headers, timeout_seconds=3)
+    plan = create_plan(compiled.specification, environment, builtin_adapters())
+    runner = LocalRunner(
+        builtin_registry(),
+        builtin_adapters(),
+        evidence_root=tmp_path,
+        environment_variables=secrets,
+    )
+    return runner.run(ExecutionRequest("shop", compiled, plan, environment))
+
+
+def test_environment_headers_are_sent_with_secrets_resolved(
+    shop_server: Any, tmp_path: Path
+) -> None:
+    report = _with_headers(
+        shop_server, tmp_path,
+        {"X-Api-Key": "${SHOP_API_KEY}", "Accept-Language": "pl"},
+        {"SHOP_API_KEY": "key-from-env-123"},
+    )  # fmt: skip
+
+    assert report.execution.status is S.PASSED, _only(report)
+    [ref] = _only(report).evidence
+    exchange = json.loads((tmp_path / report.execution.id / ref.path).read_text())["exchanges"][0]
+    assert exchange["request"]["headers"]["x-api-key"] == "********"
+    assert exchange["request"]["headers"]["accept-language"] == "pl"
+    assert "key-from-env-123" not in (tmp_path / report.execution.id / ref.path).read_text()
+
+
+def test_missing_secret_in_environment_headers(shop_server: Any, tmp_path: Path) -> None:
+    report = _with_headers(shop_server, tmp_path, {"X-Api-Key": "${SHOP_API_KEY}"}, {})
+    status, classification, message = _failure(report)
+    assert (status, classification) == (S.ERROR, C.ENVIRONMENT_ERROR)
+    assert message.startswith(
+        "httpx could not start the test case: environment 'qa': secret SHOP_API_KEY"
+    )

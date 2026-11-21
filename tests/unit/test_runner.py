@@ -894,3 +894,15 @@ def test_interrupted_execution_is_logged(tmp_path: Path) -> None:
     [log] = list((tmp_path / "evidence").glob("*/execution.log"))
     events = [json.loads(line)["event"] for line in log.read_text().splitlines()]
     assert events[-3:] == ["execution-interrupted", "cleanup-finished", "execution-finished"]
+
+
+def test_environment_variables_are_resolved_without_masking(tmp_path: Path) -> None:
+    compiled = _secret_compiled('When the user types "${SHOP_USER}"', 'Then outcome "pass"')
+    runner = _secret_runner(tmp_path, {})
+    environment = Environment(name="local", variables={"SHOP_USER": "alice-user"})
+
+    report = runner.run(ExecutionRequest("shop", compiled, _plan(compiled), environment))
+
+    assert report.execution.status is S.PASSED
+    assert "secret-step:alice-user" in EVENTS
+    assert report.results[0].steps[0].text == 'the user types "${SHOP_USER}"'

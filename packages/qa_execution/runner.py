@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-from qa_core.redaction import MissingSecretError, Redactor, resolve_references
+from qa_core.redaction import MissingSecretError, Redactor
 from qa_core.steps.registry import StepArguments, StepParameterError, StepRegistry
 from qa_execution.adapters import ExecutionContext, TestAdapter
 from qa_execution.errors import TestEnvironmentError, classify, describe
@@ -150,6 +150,7 @@ class LocalRunner:
             evidence_dir=evidence_dir,
             adapter_config=self._adapter_config,
             redactor=Redactor(),
+            secret_source=self._variables,
         )
         adapters = [adapter_class() for adapter_class in selection.adapters]
         providers = {
@@ -173,7 +174,7 @@ class LocalRunner:
             timeout_seconds=plan.settings.timeout_seconds,
         )
         execution = self._transition(execution, S.RUNNING, started_at=self._clock())
-        run = _Run(self._steps, self._clock, context, adapters, providers, self._variables, log)
+        run = _Run(self._steps, self._clock, context, adapters, providers, log)
         try:
             try:
                 results, failure = run.execute(spec, plan.settings.fail_fast)
@@ -272,11 +273,9 @@ class _Run:
         context: ExecutionContext,
         adapters: list[TestAdapter],
         providers: dict[str, TestAdapter],
-        variables: Mapping[str, str],
         log: ExecutionLog,
     ) -> None:
         self.log = log
-        self.variables = variables
         self.steps = steps
         self.clock = clock
         self.context = context
@@ -497,7 +496,7 @@ class _Run:
         return result, failure
 
     def _resolve(self, text: str) -> str:
-        return resolve_references(text, self.variables, self.context.redactor)
+        return self.context.resolve(text)
 
     def _prepare_step(self, step: Step) -> tuple[Callable[..., Any], dict[str, Any]]:
         if step.action is None:

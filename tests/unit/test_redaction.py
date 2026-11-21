@@ -72,3 +72,15 @@ def test_missing_secret_names_the_variable_but_no_value() -> None:
     with pytest.raises(MissingSecretError, match="secret API_TOKEN is not set") as info:
         resolve_references("${API_TOKEN}", {"OTHER": "x"}, Redactor())
     assert info.value.name == "API_TOKEN"
+
+
+def test_plain_variables_are_used_first_and_not_masked() -> None:
+    redactor = Redactor()
+    value = resolve_references(
+        "${SHOP_USER} / ${SHOP_PASSWORD}",
+        {"SHOP_USER": "from-os-env", "SHOP_PASSWORD": "s3cret-pw"},
+        redactor,
+        plain={"SHOP_USER": "alice"},
+    )
+    assert value == "alice / s3cret-pw"
+    assert redactor.redact("alice s3cret-pw") == f"alice {MASK}"

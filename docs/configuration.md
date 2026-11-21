@@ -24,6 +24,11 @@ project:
       services:                           # named service endpoints
         api: http://localhost:8000
       timeout_seconds: 30                 # default 30, max 3600
+      variables:                          # plain values for ${NAME} in scenarios
+        SHOP_USER: alice
+      headers:                            # sent with every API request
+        Accept-Language: en
+        X-Api-Key: ${SHOP_API_KEY}        # secrets only as references
 ```
 
 ## Adapter settings
@@ -67,7 +72,9 @@ fields are rejected then), not when `qa.yaml` is loaded.
 | `project.environments[].name` | identifier | — | Unique within the project. |
 | `project.environments[].base_url` | http(s) URL | none | |
 | `project.environments[].services` | map identifier → URL | `{}` | |
-| `project.environments[].timeout_seconds` | number | `30` | `0 < value ≤ 3600`. |
+| `project.environments[].timeout_seconds` | number | `30` | `0 < value ≤ 3600`. Step timeout. |
+| `project.environments[].variables` | map `NAME` → text | `{}` | Plain values for `${NAME}`; names like `*_PASSWORD`, `*_TOKEN`, `*_SECRET`, `*_KEY` are rejected. |
+| `project.environments[].headers` | map header → text | `{}` | Default API headers; `Authorization`, `X-Api-Key`, `Cookie`, … must contain a `${NAME}` reference. |
 
 ## Validation rules
 
@@ -92,7 +99,11 @@ Invalid configuration in qa.yaml:
 - URLs with embedded credentials (`https://user:token@host`) are rejected,
   and the rejected value is not echoed in the error message.
 
-Referencing secrets (e.g. from environment variables) is added in TASK-055.
+- sensitive headers (`Authorization`, `X-Api-Key`, `Cookie`, …) must contain a
+  `${NAME}` reference, and variables with secret-like names are rejected.
+
+Secrets are referenced as `${NAME}` and come from environment variables; see
+[`secrets.md`](secrets.md).
 
 ## Editing from the command line
 

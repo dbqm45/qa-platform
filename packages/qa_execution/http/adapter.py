@@ -15,7 +15,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from qa_core.redaction import MASK, Redactor
+from qa_core.redaction import MASK, MissingSecretError, Redactor
 from qa_execution.adapters import (
     AdapterNotPreparedError,
     ExecutionContext,
@@ -25,11 +25,8 @@ from qa_execution.adapters import (
 from qa_execution.errors import TestEnvironmentError
 from qa_execution.http.config import HttpConfig
 from qa_schemas.evidence import EvidenceReference
+from qa_schemas.project import SENSITIVE_HEADERS
 from qa_schemas.specification import TestCase
-
-SENSITIVE_HEADERS = frozenset(
-    {"authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key", "x-auth-token"}
-)
 
 
 @dataclass
@@ -138,8 +135,19 @@ class HttpxAdapter(TestAdapter):
             verify=self.config.verify_tls,
             follow_redirects=self.config.follow_redirects,
         )
+        try:
+            headers = {
+                name: execution.resolve(value) for name, value in environment.headers.items()
+            }
+        except MissingSecretError as error:
+            client.close()
+            raise TestEnvironmentError(f"environment {environment.name!r}: {error}") from None
         self._session = HttpSession(
-            client=client, config=self.config, redactor=execution.redactor, base_url=base_url
+            client=client,
+            config=self.config,
+            redactor=execution.redactor,
+            base_url=base_url,
+            headers=headers,
         )
 
     def collect_evidence(self, test_case: TestCase) -> list[EvidenceReference]:

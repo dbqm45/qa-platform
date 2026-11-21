@@ -530,3 +530,13 @@ messages, normally fire first.
 change an outcome. `qa_execution.history` lists executions from SQLite and
 assembles details from the files in the execution directory; the CLI
 commands `qa execution list|show` only format them.
+
+## Environment configuration (TASK-055)
+
+`Environment` holds base URL, service endpoints, step timeout, plain
+`variables` and default API `headers`. `ExecutionContext.resolve()` is the
+single place that resolves `${NAME}`: environment variables from `qa.yaml`
+first (plain), then the process environment (secret, registered with the
+redactor). The runner uses it for step arguments, the HTTP adapter for
+default headers. The schema refuses plain credentials in sensitive headers and
+secret-like variable names; patterns are shared through `qa_schemas.base`.

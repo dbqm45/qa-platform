@@ -64,3 +64,14 @@ def find_duplicates(values: Iterable[str]) -> list[str]:
 
 ContentHash = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
 """Hash of source content, e.g. ``sha256:9f86d0...``."""
+
+VARIABLE_NAME_PATTERN = r"^[A-Z_][A-Z0-9_]*$"
+"""Name usable in a ``${NAME}`` reference."""
+
+REFERENCE_PATTERN = r"\$\{([A-Z_][A-Z0-9_]*)\}"
+"""A ``${NAME}`` reference inside text."""
+
+SENSITIVE_NAMES = (
+    r"pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|auth|session|pin|otp"
+)
+"""Name fragments that mark a value as sensitive (parameters, JSON fields, variables)."""

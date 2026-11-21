@@ -153,3 +153,52 @@ def test_invalid_timeout_is_rejected(timeout: float) -> None:
 def test_invalid_service_name_is_rejected() -> None:
     with pytest.raises(ValidationError, match="services"):
         Environment(name="local", services={"My API": "http://localhost"})  # type: ignore[dict-item]
+
+
+# --- Environment variables and headers (TASK-055) ----------------------------
+
+
+def test_environment_variables_and_headers() -> None:
+    environment = Environment(
+        name="qa",
+        variables={"SHOP_USER": "alice", "LOCALE": "pl"},
+        headers={
+            "Accept-Language": "pl",
+            "X-Api-Key": "${SHOP_API_KEY}",
+            "Authorization": "Bearer ${API_TOKEN}",
+        },
+    )
+    assert environment.variables["SHOP_USER"] == "alice"
+    assert environment.headers["Authorization"] == "Bearer ${API_TOKEN}"
+
+
+@pytest.mark.parametrize(
+    ("headers", "message"),
+    [
+        ({"X-Api-Key": "abc123"}, "header X-Api-Key must reference a secret"),
+        ({"Authorization": "Bearer abc"}, "header Authorization must reference a secret"),
+        ({"cookie": "session=1"}, "header cookie must reference a secret"),
+        ({"Bad Header": "x"}, "headers"),
+    ],
+)
+def test_plaintext_credentials_in_headers_are_rejected(
+    headers: dict[str, str], message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        Environment(name="qa", headers=headers)
+
+
+@pytest.mark.parametrize(
+    ("name", "message"),
+    [
+        ("SHOP_PASSWORD", "looks like a secret"),
+        ("API_TOKEN", "looks like a secret"),
+        ("STRIPE_KEY", "looks like a secret"),
+        ("CLIENT_SECRET", "looks like a secret"),
+        ("shop_user", "variables"),
+        ("1USER", "variables"),
+    ],
+)
+def test_invalid_or_secret_variables_are_rejected(name: str, message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        Environment(name="qa", variables={name: "x"})

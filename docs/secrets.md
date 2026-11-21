@@ -24,6 +24,24 @@ uv run qa test --scenario login.feature
 - A missing variable makes the test case `error` / `environment_error`:
   `secret SHOP_PASSWORD is not set` (the message never contains a value).
 
+## Plain variables and default headers per environment
+
+```yaml
+environments:
+  - name: staging
+    variables:
+      SHOP_USER: qa-bot             # plain: shown in results as is
+    headers:
+      X-Api-Key: ${SHOP_API_KEY}    # secret: from the environment variable
+```
+
+`${NAME}` is resolved from the target environment's `variables` first (plain,
+not masked), otherwise from environment variables (secret, masked). So the
+same scenario can run against environments with different users or keys.
+Headers listed under `headers` are sent with every API request; a missing
+secret makes each test case `error` / `environment_error`. `qa.yaml` rejects
+plain values for sensitive headers and variables with secret-like names.
+
 ## What is masked
 
 Every execution has a redactor. Known secret values and sensitive patterns are
