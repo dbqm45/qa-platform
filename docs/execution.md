@@ -327,6 +327,50 @@ A protected environment is **read-only**: tests must not change its data.
 This guards against accidents; it is not a security boundary. A `GET` that
 changes data in a badly designed application is not detected.
 
+### Fingerprints
+
+Every execution records in `results.json` a **fingerprint** of what exactly
+it tested, and `qa execution show` prints it with the commit of each
+repository of the application:
+
+```
+Fingerprint   sha256:3f9a1c0e5b7d2a46
+Repository    web @ 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b
+Repository    api @ unknown
+```
+
+It is a hash over named parts: the specification (with the scenario's
+content hash), each test case, the plan (mode, category, adapters, timeouts,
+mocks), the environment as written in `qa.yaml`, the `adapters:` settings,
+the content of the mock and contract files used, options such as
+`--allow-writes`, the versions of Python and the libraries that execute
+steps, and the commit of every repository with a local `path`
+(`+dirty` with uncommitted changes, `unknown` without a local git checkout;
+read with `git rev-parse` / `git status`, nothing in the repository is
+written).
+
+Secret values never enter it: headers and URLs are hashed as written, with
+their `${NAME}` references, so rotating a key does not change a fingerprint.
+
+```bash
+qa execution compare 20261121-0945 20261121-1012
+```
+
+```
+20261121-094520-1b2c3d and 20261121-101233-4e5f6a differ in:
+  environment
+  plan
+  repository web: 1a2b3c4d5e6f -> 9f8e7d6c5b4a
+  test case orders.order-product:2
+```
+
+prints `Same inputs (...)` and exits with `0` when both executions tested the
+same thing, otherwise lists the differences and exits with `1`, so a
+pipeline can tell "the application changed" from "the test changed". Test
+cases that only one execution ran (e.g. a `--failed-only` rerun) are listed
+as `only in`. Executions recorded before fingerprints existed cannot be
+compared.
+
 ### Rerun
 
 ```bash
@@ -350,6 +394,9 @@ and category. `--failed-only` takes only the test cases that did not pass
   row of `Examples` is removed or moved, the same number can name a different
   example; that case is skipped with a warning instead of running the wrong
   example in its place. If none is left, the rerun stops with an error.
+- Other inputs that changed since the original are named as well
+  (`Warning: since execution ... changed: environment; repository web: ...`),
+  from the [fingerprints](#fingerprints).
 - The rerun is a normal execution with its own results, evidence and report.
   `qa execution show` names the execution it repeats (`Rerun of`).
 - If every test case passed, `--failed-only` prints `Nothing to rerun` and

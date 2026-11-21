@@ -27,6 +27,7 @@ from typing import Any, Protocol
 
 from qa_core.redaction import MissingSecretError, Redactor
 from qa_core.steps.registry import StepArguments, StepParameterError, StepRegistry
+from qa_execution import fingerprint
 from qa_execution.adapters import ExecutionContext, TestAdapter
 from qa_execution.contracts import Contract
 from qa_execution.errors import RootCause, TestEnvironmentError, classify, describe
@@ -53,7 +54,7 @@ from qa_schemas.evidence import EvidenceReference
 from qa_schemas.execution import TestExecution
 from qa_schemas.plan import ExecutionPlan
 from qa_schemas.project import Environment
-from qa_schemas.results import ExecutionReport, Failure, StepResult, TestResult
+from qa_schemas.results import ExecutionReport, Failure, Fingerprint, StepResult, TestResult
 from qa_schemas.specification import Step, TestCase, TestSpecification
 
 Clock = Callable[[], datetime]
@@ -92,6 +93,8 @@ class ExecutionRequest:
     """Mock definitions for the plan's ``mock`` dependencies, by service name."""
     contracts: Mapping[str, Contract] = field(default_factory=dict)
     """OpenAPI contracts to check responses against (contract mode)."""
+    repositories: Mapping[str, str] = field(default_factory=dict)
+    """Commit of each repository of the application under test, for the fingerprint."""
 
 
 @dataclass
@@ -215,6 +218,7 @@ class LocalRunner:
                 execution=self._finish(execution, _overall(results, failure)),
                 source=spec.source,
                 mocked=tuple(sorted(request.mocks)),
+                fingerprint=self._fingerprint(request),
                 results=tuple(results),
                 failure=failure,
                 cleanup_errors=tuple(cleanup_errors),
@@ -266,6 +270,21 @@ class LocalRunner:
             return self._adapters.select(spec.required_capabilities, allowed=plan.adapters)
         except AdapterSelectionError as error:
             raise NotExecutableError(str(error)) from None
+
+    def _fingerprint(self, request: ExecutionRequest) -> Fingerprint:
+        return fingerprint.compute(
+            request.compiled.specification,
+            request.plan,
+            request.environment,
+            adapter_config=self._adapter_config,
+            mocks={
+                name: mock.definition.model_dump(mode="json", by_alias=True)
+                for name, mock in request.mocks.items()
+            },
+            contracts={name: dict(c.document) for name, c in request.contracts.items()},
+            options={"allow_writes": request.allow_writes},
+            repositories=request.repositories,
+        )
 
     def _persist(self, execution: TestExecution, *, new: bool = False) -> None:
         if self._store is None:

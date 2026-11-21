@@ -11,6 +11,7 @@ from pathlib import Path
 
 from qa_core.config import load_config
 from qa_core.steps.registry import StepRegistry
+from qa_execution.fingerprint import differences
 from qa_execution.history import show_execution
 from qa_execution.registry import AdapterRegistry
 from qa_execution.service import TestRun, TestRunError, run_file
@@ -113,6 +114,18 @@ def rerun_execution(
         allow_writes=allow_writes,
         mocks=report.mocked,  # the same services as in the original execution
     )
+    original = report.fingerprint
+    for spec_run in run.runs:
+        current = spec_run.report.fingerprint if spec_run.report else None
+        if original is None or current is None:
+            continue
+        changed = [
+            line
+            for line in differences(original, current)
+            if line != "specification" and not line.startswith("test case ")
+        ]  # scenario changes are reported above, per scenario
+        if changed:
+            warnings.append(f"since execution {execution.id} changed: {'; '.join(changed)}")
     return replace(run, warnings=tuple(warnings))
 
 

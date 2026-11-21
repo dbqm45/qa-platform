@@ -244,7 +244,9 @@ Compiles the file, executes its ready specifications in a browser and stores
 results, evidence, a log and an HTML report in `.qa/executions/<id>/`.
 `uv run qa test --scenario login.feature --json build/qa-summary.json` also writes a versioned JSON summary for CI.
 `uv run qa execution list` and `uv run qa execution show <id>` browse the history;
-`uv run qa rerun --failed-only <id>` runs the failed test cases of an execution again. Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
+`uv run qa rerun --failed-only <id>` runs the failed test cases of an execution again;
+`uv run qa execution compare <id> <id>` names what differed between two executions
+(scenario, environment, repository commits, versions, ...). Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
 
 ## Secrets
 

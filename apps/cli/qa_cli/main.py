@@ -25,6 +25,7 @@ from qa_core.scenarios.service import (
 from qa_core.scenarios.sources import LocalFileSource
 from qa_core.storage import StorageError
 from qa_execution.builtin import builtin_adapters, builtin_registry
+from qa_execution.fingerprint import differences as fingerprint_differences
 from qa_execution.history import ExecutionNotFoundError, list_executions, show_execution
 from qa_execution.rerun import NothingToRerunError, rerun_execution
 from qa_execution.service import TestRun, TestRunError, run_scenario
@@ -528,6 +529,41 @@ def execution_list(
         )
 
 
+@execution_app.command("compare")
+def execution_compare(
+    first: Annotated[str, typer.Argument(help="Execution id, or a unique prefix of it.")],
+    second: Annotated[str, typer.Argument(help="Execution id, or a unique prefix of it.")],
+    config: ConfigOption = Path(CONFIG_FILENAME),
+) -> None:
+    """Compare what two executions tested (their fingerprints).
+
+    Exits with 0 if the inputs were the same, 1 if anything differs.
+    """
+    with _cli_errors():
+        a, b = show_execution(config, first), show_execution(config, second)
+        prints = [d.report.fingerprint if d.report else None for d in (a, b)]
+        for details, value in zip((a, b), prints, strict=True):
+            if value is None:
+                raise ExecutionNotFoundError(
+                    f"execution {details.execution.id} has no fingerprint "
+                    "(no results.json, or recorded before fingerprints existed)"
+                )
+    fa, fb = prints
+    assert fa is not None and fb is not None
+    lines = fingerprint_differences(fa, fb)
+    only_a = sorted(set(fa.test_cases) - set(fb.test_cases))
+    only_b = sorted(set(fb.test_cases) - set(fa.test_cases))
+    lines += [f"test case {c} only in {a.execution.id}" for c in only_a]
+    lines += [f"test case {c} only in {b.execution.id}" for c in only_b]
+    if not lines:
+        typer.echo(f"Same inputs ({fa.value[:23]})")
+        return
+    typer.echo(f"{a.execution.id} and {b.execution.id} differ in:")
+    for line in lines:
+        typer.echo(f"  {line}")
+    raise typer.Exit(EXIT_ERROR)
+
+
 @execution_app.command("show")
 def execution_show(
     execution_id: Annotated[str, typer.Argument(help="Execution id, or a unique prefix of it.")],
@@ -555,6 +591,10 @@ def execution_show(
     report = details.report
     if report is not None and report.mocked:
         typer.echo(f"Mocked        {', '.join(report.mocked)}")
+    if report is not None and report.fingerprint is not None:
+        typer.echo(f"Fingerprint   {report.fingerprint.value[:23]}")
+        for name, revision in report.fingerprint.repositories.items():
+            typer.echo(f"Repository    {name} @ {revision}")
     if report is None:
         typer.echo("\nNo results recorded (the execution may have been interrupted).")
     else:

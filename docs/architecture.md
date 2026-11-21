@@ -492,6 +492,11 @@ change it waits for.
   request, a request blocked in a protected environment) derive from
   `qa_execution.errors.RootCause`; the runner reports them instead of that
   step failure.
+- Fingerprints (TASK-061, `qa_execution.fingerprint`) are computed by the
+  runner when it builds the report: SHA-256 over canonical JSON per part,
+  per test case and overall. Repository commits are read once per run by the
+  service with `git --no-optional-locks` (plain `git status` would refresh
+  the application's `.git/index`, a write).
 - Execution metadata goes to SQLite (queryable history); the full report is a
   JSON file next to its evidence (easy to inspect, archive or hand to CI).
 
