@@ -5,6 +5,7 @@ description = "Local-first, deterministic QA automation platform."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "cucumber-expressions>=17",
     "gherkin-official>=29",
     "pydantic>=2.10",
     "pyyaml>=6.0",
@@ -65,6 +66,11 @@ files = ["apps/cli", "packages", "tests"]
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
 pretty = true
+
+[[tool.mypy.overrides]]
+# cucumber-expressions ships no type information.
+module = ["cucumber_expressions.*"]
+ignore_missing_imports = true
 
 # --- pytest ---------------------------------------------------------------
 [tool.pytest.ini_options]

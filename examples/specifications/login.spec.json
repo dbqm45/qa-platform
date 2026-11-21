@@ -19,7 +19,9 @@
           "text": "the login page is open",
           "line": 5,
           "data_table": null,
-          "doc_string": null
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
         },
         {
           "kind": "action",
@@ -27,7 +29,9 @@
           "text": "the user signs in as \"alice\" with password \"correct-password\"",
           "line": 8,
           "data_table": null,
-          "doc_string": null
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
         },
         {
           "kind": "expectation",
@@ -35,7 +39,9 @@
           "text": "the dashboard is shown",
           "line": 9,
           "data_table": null,
-          "doc_string": null
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
         },
         {
           "kind": "expectation",
@@ -43,7 +49,9 @@
           "text": "the greeting contains \"Alice\"",
           "line": 10,
           "data_table": null,
-          "doc_string": null
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
         }
       ],
       "parameters": {}

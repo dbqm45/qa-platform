@@ -326,3 +326,29 @@ produced by the converter, and a test keeps them identical.
   file are resolved by source order (`-2`, `-3`).
 - **`source.content_hash`** is the scenario content hash (TASK-021), not the
   file hash, so a specification becomes outdated only when *its* scenario changes.
+
+## Step representation, registry and resolution (TASK-024, TASK-025)
+
+Specification steps now carry `action` (the id of the registered step, or
+`null` when unresolved) and typed `parameters`. Together with `kind`,
+`keyword`, `text`, `line`, `data_table` and `doc_string` this is the complete
+step representation; an expected result is a step of kind `expectation`.
+
+- `qa_core.steps.registry.StepRegistry` holds `StepDefinition`s (id, pattern,
+  kind, capability, handler, parameter names). Definitions are fully checked
+  when registered.
+- `qa_core.steps.resolution.resolve_specification(spec, registry)` returns
+  the specification with actions, parameters and `required_capabilities`
+  filled in, plus the list of `UnresolvedStep`s.
+
+Author-facing rules: [`steps.md`](steps.md).
+
+### ADR-013: Cucumber Expressions, kind-aware matching
+
+- Patterns use Cucumber Expressions (official `cucumber-expressions` package),
+  with anchored regexes as an escape hatch. They are typed and familiar to
+  Gherkin authors; parameter types are limited to JSON-compatible ones.
+- A step resolves only if **exactly one** definition of a compatible kind
+  matches; multiple matches are reported as ambiguous instead of picking one.
+- Expectation steps resolve only to expectation definitions, so an
+  unrecognised assertion can never become an executable no-op.

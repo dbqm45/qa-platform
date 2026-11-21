@@ -44,6 +44,8 @@
 | TASK-021 | Done |
 | TASK-022 | Done |
 | TASK-023 | Done |
+| TASK-024 | Done |
+| TASK-025 | Done — registry core (registration, conflicts, resolution); step categories and implementations in TASK-031 |
 
 ---
 

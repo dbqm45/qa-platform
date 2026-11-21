@@ -28,6 +28,9 @@ SPECIFICATION_SCHEMA_VERSION: Literal[1] = 1
 StepText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
 Tag = Annotated[str, StringConstraints(pattern=TAG_PATTERN)]
+
+StepParameter = str | int | float
+"""Value of a step parameter; JSON-compatible by design."""
 """Tag without the leading ``@``, e.g. ``smoke`` or ``jira:SHOP-12``."""
 
 
@@ -62,6 +65,11 @@ class Step(SchemaModel):
     data_table: tuple[tuple[str, ...], ...] | None = None
     """Table argument, first row included (it is usually the header)."""
     doc_string: DocString | None = None
+    action: StableId | None = None
+    """Id of the registered step implementation (TASK-024/025). ``None`` means the
+    step is not resolved: it is known only by its text and is never guessed."""
+    parameters: dict[str, StepParameter] = Field(default_factory=dict)
+    """Values extracted from the text by the step pattern, by parameter name."""
 
 
 class TestCase(SchemaModel):

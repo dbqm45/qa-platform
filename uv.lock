@@ -74,6 +74,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cucumber-expressions"
+version = "20.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/cc/2c4a87f793ebad5a840a7e5c4045eb30968416645814a62b54681a3b4f3e/cucumber_expressions-20.2.0.tar.gz", hash = "sha256:f526dda8f3af10642afd5293ffdbe7b471d3c509633b88af03d05f62b387d294", size = 14800, upload-time = "2026-11-11T13:16:47.039Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/68/e6/2b0f3365c7754a04d12c2a590d4f50b60bb1072572cfab66527413fff67a/cucumber_expressions-20.2.0-py3-none-any.whl", hash = "sha256:60c965213c4659a36e12fce79a2ba11611d332912c1d6bdd34ed89cac804c905", size = 20231, upload-time = "2026-11-11T13:16:46.174Z" },
+]
+
+[[package]]
 name = "gherkin-official"
 version = "43.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -292,6 +301,7 @@ name = "qa-platform"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cucumber-expressions" },
     { name = "gherkin-official" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -309,6 +319,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cucumber-expressions", specifier = ">=17" },
     { name = "gherkin-official", specifier = ">=29" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pyyaml", specifier = ">=6.0" },
