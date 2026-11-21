@@ -131,6 +131,11 @@ Both commands use `qa.yaml` in the current directory (`-c PATH` for another
 file), validate the result before writing, and keep existing comments.
 Exit codes: `0` success, `1` error (configuration, validation, storage), `2` invalid command-line usage.
 
+## Scenarios
+
+Scenarios are Gherkin `.feature` files; supported constructs and validation
+rules are described in [`docs/scenarios.md`](docs/scenarios.md).
+
 ## Configuration
 
 Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).

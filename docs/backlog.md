@@ -40,6 +40,7 @@
 | TASK-017 | Done — Markdown deferred (ADR-010) |
 | TASK-018 | Done |
 | TASK-019 | Done |
+| TASK-020 | Done |
 
 ---
 

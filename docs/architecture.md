@@ -60,6 +60,7 @@ module defines an enum containing a status value.
 | `DependencyMode` | `real`, `mock` | How an external service is provided. |
 | `ScenarioFormat` | `gherkin` | Format of a scenario document; selects the parser. |
 | `StepKeywordType` | `context`, `action`, `outcome`, `conjunction`, `unknown` | Gherkin keyword type, language independent. |
+| `IssueSeverity` | `error`, `warning` | Severity of a validation finding. |
 
 ### ADR-002: Two status enums instead of one (TASK-007)
 
@@ -281,3 +282,12 @@ ParseResult
 Using `gherkin-official` gives the complete grammar, all languages and precise
 error locations, which a hand-written parser would need a long time to match.
 It is deterministic and needs no LLM. The conversion layer keeps it replaceable.
+
+## Scenario validation (TASK-020)
+
+`qa_core.scenarios.validation.validate(results)` turns parse results into a
+`ValidationReport` (issues, document and scenario counts, `ok` = no errors).
+Syntax errors from the parser become `syntax` issues, so the CLI reports
+everything in one format. Rules are pure functions over the parsed models;
+each `ValidationIssue` has a stable `code` for filtering and tests. The rule
+list is documented for users in [`scenarios.md`](scenarios.md).

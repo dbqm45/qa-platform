@@ -11,7 +11,7 @@ from typing import Self
 from pydantic import PositiveInt, model_validator
 
 from qa_schemas.base import ContentHash, SchemaModel
-from qa_schemas.enums import ScenarioFormat, StepKeywordType
+from qa_schemas.enums import IssueSeverity, ScenarioFormat, StepKeywordType
 
 
 def content_hash(data: bytes) -> str:
@@ -128,3 +128,21 @@ class ParseResult(SchemaModel):
     @property
     def ok(self) -> bool:
         return not self.issues
+
+
+# --- Validation (TASK-020) ---------------------------------------------------
+
+
+class ValidationIssue(SchemaModel):
+    path: PurePosixPath
+    line: PositiveInt | None = None
+    column: PositiveInt | None = None
+    severity: IssueSeverity
+    code: str
+    """Stable identifier of the rule, e.g. ``scenario.missing-name``."""
+    message: str
+
+    def location(self) -> str:
+        """``path:line:column`` as far as known, for display."""
+        parts = [str(self.path)] + [str(n) for n in (self.line, self.column) if n is not None]
+        return ":".join(parts)

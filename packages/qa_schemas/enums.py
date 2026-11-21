@@ -116,3 +116,13 @@ class StepKeywordType(StrEnum):
     OUTCOME = "outcome"
     CONJUNCTION = "conjunction"
     UNKNOWN = "unknown"
+
+
+@unique
+class IssueSeverity(StrEnum):
+    """How serious a validation finding is (TASK-020)."""
+
+    ERROR = "error"
+    """Blocks compilation and execution."""
+    WARNING = "warning"
+    """Worth fixing, but does not block anything."""
