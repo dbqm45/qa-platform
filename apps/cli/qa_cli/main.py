@@ -251,6 +251,10 @@ def test_command(
     category: Annotated[
         TestCategory, typer.Option(help="Test category.", case_sensitive=False)
     ] = TestCategory.FUNCTIONAL,
+    timeout: Annotated[
+        float | None,
+        typer.Option(help="Limit for each execution in seconds (default 600).", min=1, max=86_400),
+    ] = None,
     config: ConfigOption = Path(CONFIG_FILENAME),
 ) -> None:
     """Compile a scenario file and execute its ready specifications.
@@ -266,6 +270,7 @@ def test_command(
             category=category,
             steps=builtin_registry(),
             adapters=builtin_adapters(),
+            timeout=timeout,
         )
     _print_test_run(run)
     if not run.ok:

@@ -503,3 +503,22 @@ Playwright. Specifications that need only `http` run in `be` mode.
 
 Step arguments (`data_table`, `doc_string`) are now validated through their
 annotations like text parameters; the JSON body check relies on it.
+
+## Timeouts and safe cleanup (TASK-067, TASK-068)
+
+`qa_execution.timeouts` provides `deadline()` (a hard limit via `SIGALRM`) and
+`Budget` (remaining execution time). The runner wraps every phase: adapter
+start, hooks, steps (step timeout + grace), evidence collection and cleanup
+(own 30 s limit, independent of the budget). A `StepTimeoutError` is an
+`environment_error`; when the budget runs out, remaining test cases are
+cancelled and the execution fails with an execution-level `Failure`.
+
+### ADR-019: Interrupting with signals, not threads
+
+Running a step in a worker thread and abandoning it on timeout is not
+possible: Playwright's sync API objects must stay on the thread that created
+them. `SIGALRM` interrupts the main thread's Python code instead, after which
+the normal error handling and cleanup run. The price: no hard limits on
+Windows or outside the main thread; adapter timeouts still apply there. Hard
+limits sit 2 s above the step timeout so adapter timeouts, which have better
+messages, normally fire first.

@@ -17,6 +17,7 @@ import os
 import secrets
 import time
 from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,6 +28,14 @@ from qa_core.steps.registry import StepArguments, StepParameterError, StepRegist
 from qa_execution.adapters import ExecutionContext, TestAdapter
 from qa_execution.errors import TestEnvironmentError, classify, describe
 from qa_execution.registry import AdapterRegistry, AdapterSelection, AdapterSelectionError
+from qa_execution.timeouts import (
+    CLEANUP_SECONDS,
+    GRACE_SECONDS,
+    HOOK_SECONDS,
+    PREPARE_SECONDS,
+    Budget,
+    deadline,
+)
 from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.enums import ExecutionStatus, FailureClassification
 from qa_schemas.evidence import EvidenceReference
@@ -240,23 +249,38 @@ class _Run:
         self.providers = providers
         self.prepared: list[TestAdapter] = []
         self._cleaned = False
+        self.step_timeout = context.settings.step_timeout_seconds
+        self.budget = Budget(context.settings.timeout_seconds)
+
+    def _limited(self, wanted: float, message: str) -> AbstractContextManager[None]:
+        """A hard limit for one phase, never beyond the execution deadline."""
+        seconds, text = self.budget.limit(wanted, message)
+        return deadline(seconds, text)
 
     def execute(
         self, specification: TestSpecification, fail_fast: bool
     ) -> tuple[list[TestResult], Failure | None]:
         cases = specification.test_cases
+        self.budget = Budget(self.context.settings.timeout_seconds)  # starts now
         failure = self._validate_and_prepare(specification)
         if failure is not None:
             return [_not_run(case, failure) for case in cases], failure
 
         results: list[TestResult] = []
         for index, case in enumerate(cases):
+            if self.budget.exhausted:
+                message = f"execution timeout of {self.budget.seconds:g}s exceeded"
+                results.extend(_cancelled(c, f"not run: {message}") for c in cases[index:])
+                return results, Failure(classification=C.ENVIRONMENT_ERROR, message=message)
             result = self._run_case(case)
             results.append(result)
             if fail_fast and result.status is not S.PASSED:
                 reason = f"not run: fail_fast after {case.id} did not pass"
                 results.extend(_cancelled(c, reason) for c in cases[index + 1 :])
                 break
+        if self.budget.exhausted and results and results[-1].status is not S.PASSED:
+            message = f"execution timeout of {self.budget.seconds:g}s exceeded"
+            return results, Failure(classification=C.ENVIRONMENT_ERROR, message=message)
         return results, None
 
     def cleanup(self) -> list[str]:
@@ -267,12 +291,20 @@ class _Run:
         errors = []
         for adapter in reversed(self.prepared):
             try:
-                adapter.cleanup()
+                # Not limited by the execution deadline: cleanup must always get a chance.
+                with deadline(
+                    CLEANUP_SECONDS, f"cleanup did not finish within {CLEANUP_SECONDS:g}s"
+                ):
+                    adapter.cleanup()
             except Exception as error:
                 errors.append(f"{adapter.name}: {describe(error)}")
         return errors
 
     # --- Steps ---------------------------------------------------------------
+
+    @property
+    def _hook_limit(self) -> float:
+        return max(HOOK_SECONDS, self.step_timeout) + GRACE_SECONDS
 
     def _validate_and_prepare(self, specification: TestSpecification) -> Failure | None:
         spec_problems: list[str] = []
@@ -286,8 +318,10 @@ class _Run:
             return Failure(classification=C.ENVIRONMENT_ERROR, message="; ".join(spec_problems))
 
         for adapter in self.adapters:
+            limit = max(PREPARE_SECONDS, self.step_timeout)
             try:
-                adapter.prepare(self.context)
+                with self._limited(limit, f"{adapter.name} did not start within {limit:g}s"):
+                    adapter.prepare(self.context)
             except Exception as error:
                 self.prepared.append(adapter)  # partially prepared: still clean it up
                 status, classification = classify(error)
@@ -310,7 +344,8 @@ class _Run:
 
         for adapter in self.prepared:
             try:
-                adapter.start_test_case(case)
+                with self._limited(self._hook_limit, f"{adapter.name}.start_test_case timed out"):
+                    adapter.start_test_case(case)
             except Exception as error:
                 failure = _failure(error, None, f"{adapter.name} could not start the test case")
                 status = S.ERROR
@@ -327,7 +362,8 @@ class _Run:
         passed = status is S.PASSED
         for adapter in self.prepared:
             try:
-                adapter.finish_test_case(case, passed)
+                with self._limited(self._hook_limit, f"{adapter.name}.finish_test_case timed out"):
+                    adapter.finish_test_case(case, passed)
             except Exception as error:
                 if failure is None:
                     status = S.ERROR
@@ -340,7 +376,9 @@ class _Run:
         evidence: list[EvidenceReference] = []
         for adapter in self.prepared:
             try:
-                evidence.extend(adapter.collect_evidence(case))
+                # Evidence may be collected after the execution deadline: it only adds notes.
+                with deadline(self._hook_limit, "evidence collection timed out"):
+                    evidence.extend(adapter.collect_evidence(case))
             except Exception as error:  # evidence must never change the outcome
                 notes.append(f"{adapter.name}: evidence collection failed: {describe(error)}")
 
@@ -365,8 +403,10 @@ class _Run:
         failure: Failure | None = None
         status = S.PASSED
         try:
-            handler, kwargs = self._prepare_step(step)
-            handler(StepContext(self.context, case, step, self.providers), **kwargs)
+            message = f"step exceeded its timeout of {self.step_timeout:g}s"
+            with self._limited(self.step_timeout + GRACE_SECONDS, message):
+                handler, kwargs = self._prepare_step(step)
+                handler(StepContext(self.context, case, step, self.providers), **kwargs)
         except Exception as error:  # KeyboardInterrupt is not an Exception: it propagates
             status, classification = classify(error)
             failure = Failure(

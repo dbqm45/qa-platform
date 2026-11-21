@@ -56,8 +56,13 @@ def create_plan(
     *,
     mode: ExecutionMode | None = None,
     category: TestCategory = TestCategory.FUNCTIONAL,
+    execution_timeout: float | None = None,
 ) -> ExecutionPlan:
-    """A validated plan, or ``PlanningError`` explaining why none is possible."""
+    """A validated plan, or ``PlanningError`` explaining why none is possible.
+
+    ``execution_timeout`` overrides the limit for the whole execution (default
+    600 s, or the environment's step timeout if that is longer).
+    """
     if category is not TestCategory.FUNCTIONAL:
         raise PlanningError(f"only functional tests are supported so far, not {category.value}")
     capabilities = frozenset(specification.required_capabilities)
@@ -74,8 +79,14 @@ def create_plan(
         category=category,
         environment=environment.name,
         adapters=selection.names,
-        settings=ExecutionSettings(
-            step_timeout_seconds=environment.timeout_seconds,
-            timeout_seconds=max(_DEFAULT_EXECUTION_TIMEOUT, environment.timeout_seconds),
-        ),
+        settings=_settings(environment, execution_timeout),
     )
+
+
+def _settings(environment: Environment, execution_timeout: float | None) -> ExecutionSettings:
+    step = environment.timeout_seconds
+    total = execution_timeout or max(_DEFAULT_EXECUTION_TIMEOUT, step)
+    try:
+        return ExecutionSettings(step_timeout_seconds=min(step, total), timeout_seconds=total)
+    except ValueError as error:
+        raise PlanningError(f"invalid execution timeout {total:g}s: {error}") from None

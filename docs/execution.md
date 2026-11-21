@@ -159,4 +159,24 @@ duration. `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`,
 `X-Api-Key` and `X-Auth-Token` are masked, and the file passes through the
 secret redactor.
 
-Not yet implemented: step and execution timeouts (TASK-067).
+## Timeouts
+
+No execution can run indefinitely.
+
+| Limit | Default | Set by | When exceeded |
+|-------|---------|--------|---------------|
+| step | environment `timeout_seconds` (30 s) | `qa.yaml` environment | step `error` / `environment_error`: `step exceeded its timeout of Ns` |
+| whole execution | 600 s (or the step timeout if longer) | `qa test --timeout SECONDS` (1–86400) | current step stopped, remaining test cases `cancelled`, execution `error`: `execution timeout of Ns exceeded` |
+| adapter start | max(60 s, step timeout) | — | execution `error` |
+| per-test-case hooks and evidence | max(10 s, step timeout) + 2 s | — | hook: test case `error`; evidence: a note only |
+| cleanup, per adapter | 30 s, even after the execution deadline | — | recorded in `cleanup_errors`; other adapters are still cleaned up |
+
+Two layers enforce these limits:
+
+1. **Adapter timeouts** — every Playwright operation, every waiting assertion
+   and every HTTP request uses the step timeout and produces a specific message.
+2. **Hard limits** — slightly above the step timeout (+2 s), they interrupt
+   code that would otherwise wait forever (custom steps, `page.evaluate`
+   loops, hung hooks). They use `SIGALRM`, so they work on Linux and macOS
+   when `qa` runs in the main thread. On Windows only the adapter timeouts and
+   the execution deadline checked between test cases apply.

@@ -1,6 +1,7 @@
 """Playwright adapter and navigation steps against a real browser (TASK-039, TASK-040)."""
 
 import socket
+import time
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -45,6 +46,10 @@ def _not_remembered(context: StepContext) -> None:
         raise StepFailure("cookie from another test case is visible")
 
 
+def _freeze(context: StepContext) -> None:
+    context.resource("browser").page.evaluate("while (true) {}")  # no Playwright timeout
+
+
 def _registry() -> StepRegistry:
     """Built-in steps plus test-only checks (UI assertions arrive in TASK-042)."""
     registry = builtin_registry()
@@ -60,6 +65,7 @@ def _registry() -> StepRegistry:
         kind=e,
         capability="browser",
     )
+    registry.register("t.freeze", "the page freezes", _freeze, kind=a, capability="browser")
     return registry
 
 
@@ -248,3 +254,23 @@ def test_unsafe_or_ambiguous_urls_are_rejected_at_compile_time(url: str) -> None
     compiled = _compile(f'Given the user opens "{url}"', 'Then the title is "Home"')
     assert compiled.status is CompilationStatus.BLOCKED
     assert "invalid value" in compiled.unresolved[0].reason
+
+
+# --- Hard timeouts (TASK-067, TASK-068) --------------------------------------
+
+
+def test_frozen_page_is_stopped_and_the_browser_is_cleaned_up(
+    tmp_path: Path, web_server: str, browser_config: dict[str, Any]
+) -> None:
+    compiled = _compile(
+        'Given the user opens "/index.html"', "When the page freezes", 'Then the title is "Home"'
+    )
+    started = time.monotonic()
+
+    report = _run(tmp_path, compiled, browser_config, web_server, timeout=1)
+
+    assert time.monotonic() - started < 30
+    status, classification, message = _failure(report)
+    assert (status, classification) == (S.ERROR, C.ENVIRONMENT_ERROR)
+    assert message == "step exceeded its timeout of 1s"
+    assert report.execution.finished_at is not None

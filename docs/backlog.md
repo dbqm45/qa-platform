@@ -75,6 +75,8 @@
 | TASK-047 | Done |
 | TASK-048 | Done |
 | TASK-049 | Done |
+| TASK-067 | Done — hard limits need POSIX + main thread (ADR-019) |
+| TASK-068 | Done |
 | TASK-050 | In progress — minimal: mode inference/validation, adapter selection; dependencies and FE/BE/FULL specifics in TASK-051..053 |
 | TASK-058 | In progress — metadata in SQLite and results.json per execution; retrieval command in TASK-063 |
 

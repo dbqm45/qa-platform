@@ -42,6 +42,10 @@ class MyHttpAdapter(TestAdapter):
 | `collect_evidence(test_case)` | after each test case; must never change the outcome | optional |
 | `cleanup()` | once, always; must be safe to call twice | **yes** |
 
+Each call has a hard time limit (see [execution.md](execution.md#timeouts));
+`cleanup` gets 30 s even after the execution deadline, so keep it quick and
+idempotent.
+
 `ExecutionContext` carries the execution id, the target `Environment`, the
 plan's `ExecutionSettings` and the execution's evidence directory (adapters
 write only below it). The API is synchronous.

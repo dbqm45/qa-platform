@@ -92,6 +92,7 @@ def run_scenario(
     category: TestCategory = TestCategory.FUNCTIONAL,
     steps: StepRegistry | None = None,
     adapters: AdapterRegistry | None = None,
+    timeout: float | None = None,
 ) -> TestRun:
     """Compile ``scenario`` and execute every specification that is READY.
 
@@ -135,7 +136,9 @@ def run_scenario(
         )
         for compiled in document.specifications:
             runs.append(
-                _run_one(runner, config, compiled, target, adapters, mode, category, output)
+                _run_one(
+                    runner, config, compiled, target, adapters, mode, category, output, timeout
+                )
             )
     return TestRun(scenario=path, environment=target.name, issues=document.issues, runs=tuple(runs))
 
@@ -152,6 +155,7 @@ def _run_one(
     mode: ExecutionMode | None,
     category: TestCategory,
     output: Path,
+    timeout: float | None,
 ) -> SpecificationRun:
     if not compiled.status.is_executable:
         reasons = "; ".join(compiled.reasons) or compiled.status.value
@@ -160,7 +164,12 @@ def _run_one(
         )
     try:
         plan = create_plan(
-            compiled.specification, environment, adapters, mode=mode, category=category
+            compiled.specification,
+            environment,
+            adapters,
+            mode=mode,
+            category=category,
+            execution_timeout=timeout,
         )
         report = runner.run(ExecutionRequest(config.project.id, compiled, plan, environment))
     except (PlanningError, NotExecutableError) as error:

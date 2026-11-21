@@ -1,6 +1,7 @@
 """Local Runner, execution lifecycle and error classification (TASK-034..036, TASK-038)."""
 
 import re
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar
@@ -682,3 +683,145 @@ def test_secrets_never_corrupt_identifiers(tmp_path: Path) -> None:
     assert result.name == "Wrong password"  # secrets are case-sensitive values
     assert result.failure is not None
     assert result.failure.message == "******** password rejected"
+
+
+# --- Timeouts and safe cleanup (TASK-067, TASK-068) --------------------------
+
+
+def _sleepy_steps() -> StepRegistry:
+    def sleep_for(context: StepContext, seconds: float) -> None:
+        time.sleep(seconds)
+
+    steps = _steps()
+    steps.register("t.sleep", "the user waits {float} seconds", sleep_for,
+                   kind=StepKind.ACTION, capability="browser")  # fmt: skip
+    return steps
+
+
+def _timed_run(
+    tmp_path: Path, body: str, *, step: float, total: float, rows: int = 0
+) -> ExecutionReport:
+    lines = "\n".join(f"    {s}" for s in body.splitlines())
+    if rows:
+        examples = "\n".join(f"      | {i} |" for i in range(rows))
+        content = (
+            f"Feature: F\n  Scenario Outline: S <n>\n{lines}\n"
+            f"    Examples:\n      | n |\n{examples}\n"
+        )
+    else:
+        content = f"Feature: F\n  Scenario: S\n{lines}\n"
+    document = ScenarioDocument(
+        path=PurePosixPath("scenarios/f.feature"), format=ScenarioFormat.GHERKIN,
+        content=content, content_hash=content_hash(content.encode()),
+    )  # fmt: skip
+    steps = _sleepy_steps()
+    [compiled] = compile_documents([parse_document(document)], steps).specifications
+    plan = _plan(compiled, step_timeout_seconds=step, timeout_seconds=total)
+    runner = LocalRunner(steps, AdapterRegistry([Browser, Http]), evidence_root=tmp_path)
+    return runner.run(ExecutionRequest("shop", compiled, plan, Environment(name="local")))
+
+
+def test_hanging_step_is_stopped_after_its_timeout(tmp_path: Path) -> None:
+    started = time.monotonic()
+
+    report = _timed_run(
+        tmp_path, 'When the user waits 60 seconds\nThen outcome "pass"', step=0.3, total=60
+    )
+
+    assert time.monotonic() - started < 10
+    [result] = report.results
+    assert result.status is S.ERROR
+    assert result.failure is not None
+    assert result.failure.classification is C.ENVIRONMENT_ERROR
+    assert result.failure.message == "step exceeded its timeout of 0.3s"
+    assert result.failure.error_type == "StepTimeoutError"
+    assert "browser.cleanup" in EVENTS
+
+
+def test_execution_timeout_cancels_the_remaining_cases(tmp_path: Path) -> None:
+    started = time.monotonic()
+
+    report = _timed_run(
+        tmp_path, 'When the user waits 0.4 seconds\nThen outcome "pass"', step=0.9, total=1, rows=5
+    )
+
+    assert time.monotonic() - started < 10
+    statuses = [r.status for r in report.results]
+    assert statuses[0] is S.PASSED
+    assert statuses[-1] is S.CANCELLED
+    assert "not run: execution timeout of 1s exceeded" in report.results[-1].notes
+    assert report.failure is not None
+    assert report.failure.message == "execution timeout of 1s exceeded"
+    assert report.execution.status is S.ERROR  # never reported as passed
+
+
+def test_step_cut_short_by_the_execution_deadline(tmp_path: Path) -> None:
+    report = _timed_run(
+        tmp_path, 'When the user waits 30 seconds\nThen outcome "pass"', step=0.5, total=0.5
+    )
+    [result] = report.results
+    assert result.failure is not None
+    assert result.failure.message == "execution timeout of 0.5s exceeded"
+    assert report.execution.status is S.ERROR
+
+
+def test_hanging_prepare_is_limited_by_the_execution_deadline(tmp_path: Path) -> None:
+    class SlowStart(Browser):
+        def prepare(self, context: ExecutionContext) -> None:
+            time.sleep(30)
+
+    compiled = _compiled(*PASSING)
+    plan = _plan(compiled, step_timeout_seconds=0.2, timeout_seconds=0.5)
+    runner = LocalRunner(_steps(), AdapterRegistry([SlowStart, Http]), evidence_root=tmp_path)
+
+    report = runner.run(ExecutionRequest("shop", compiled, plan, Environment(name="local")))
+
+    assert report.failure is not None
+    assert (
+        report.failure.message
+        == "browser could not be prepared: execution timeout of 0.5s exceeded"
+    )
+    assert report.execution.status is S.ERROR
+
+
+def test_hanging_cleanup_is_stopped_and_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from qa_execution import runner as runner_module
+
+    class StuckCleanup(Browser):
+        def cleanup(self) -> None:
+            time.sleep(30)
+
+    monkeypatch.setattr(runner_module, "CLEANUP_SECONDS", 0.3)
+    compiled = _compiled(*PASSING)
+    runner = LocalRunner(_steps(), AdapterRegistry([StuckCleanup, Http]), evidence_root=tmp_path)
+
+    report = runner.run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+
+    assert report.execution.status is S.PASSED  # the outcome is not overwritten
+    assert report.cleanup_errors == ("browser: cleanup did not finish within 0.3s",)
+
+
+def test_hanging_evidence_collection_only_adds_a_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from qa_execution import runner as runner_module
+
+    class StuckEvidence(Browser):
+        def collect_evidence(self, test_case: TestCase) -> list[EvidenceReference]:
+            time.sleep(30)
+            return []
+
+    monkeypatch.setattr(runner_module, "HOOK_SECONDS", 0.2)
+    compiled = _compiled(*PASSING)
+    plan = _plan(compiled, step_timeout_seconds=0.1)
+    runner = LocalRunner(_steps(), AdapterRegistry([StuckEvidence, Http]), evidence_root=tmp_path)
+
+    report = runner.run(ExecutionRequest("shop", compiled, plan, Environment(name="local")))
+
+    [result] = report.results
+    assert result.status is S.PASSED
+    assert result.notes == ("browser: evidence collection failed: evidence collection timed out",)

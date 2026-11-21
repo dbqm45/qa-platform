@@ -187,3 +187,17 @@ def test_bad_requests(project: Path, args: list[str], message: str) -> None:
 def test_invalid_mode_is_a_usage_error(project: Path) -> None:
     code, _ = _test("-s", "login.feature", "--mode", "e2e")
     assert code == 2
+
+
+def test_timeout_option(project: Path) -> None:
+    _write(project, LOGIN)
+    code, output = _test("-s", "login.feature", "--timeout", "120")
+    assert code == 0, output
+    plan_id = _report(project, output).execution.plan_id
+    assert plan_id == "login.successful-login.fe.app"
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "100000"])
+def test_invalid_timeout_is_a_usage_error(project: Path, value: str) -> None:
+    code, _ = _test("-s", "login.feature", "--timeout", value)
+    assert code == 2

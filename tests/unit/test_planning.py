@@ -113,3 +113,21 @@ def test_long_environment_timeout_extends_the_execution_timeout() -> None:
     plan = create_plan(_spec("browser"), Environment(name="slow", timeout_seconds=1200), ADAPTERS)
     assert plan.settings.step_timeout_seconds == 1200
     assert plan.settings.timeout_seconds >= 1200
+
+
+def test_execution_timeout_can_be_overridden() -> None:
+    environment = Environment(name="local", timeout_seconds=30)
+    plan = create_plan(_spec("browser"), environment, ADAPTERS, execution_timeout=7200)
+    assert plan.settings.timeout_seconds == 7200
+    assert plan.settings.step_timeout_seconds == 30
+
+
+def test_short_execution_timeout_also_limits_steps() -> None:
+    environment = Environment(name="local", timeout_seconds=30)
+    plan = create_plan(_spec("browser"), environment, ADAPTERS, execution_timeout=10)
+    assert (plan.settings.timeout_seconds, plan.settings.step_timeout_seconds) == (10, 10)
+
+
+def test_default_execution_timeout_is_bounded() -> None:
+    plan = create_plan(_spec("browser"), Environment(name="local"), ADAPTERS)
+    assert plan.settings.timeout_seconds == 600
