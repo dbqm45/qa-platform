@@ -82,6 +82,9 @@ class Environment(SchemaModel):
     allowed_hosts: tuple[AllowedHost, ...] = ()
     """Hosts besides those of ``base_url`` and ``services`` that tests may contact
     (TASK-069), e.g. an identity provider."""
+    contracts: dict[Identifier, Path] = Field(default_factory=dict)
+    """Service name -> OpenAPI document (relative to the project root) its responses
+    are checked against in ``--mode contract`` (TASK-054)."""
     mocks: dict[Identifier, Path] = Field(default_factory=dict)
     """Service name -> mock file (relative to the project root) that can replace it
     with ``qa test --mock NAME`` (TASK-051)."""
@@ -91,6 +94,11 @@ class Environment(SchemaModel):
         if unknown := sorted(set(self.mocks) - set(self.services)):
             raise ValueError(
                 f"mocks for unknown services: {unknown}; a mock replaces an entry of services"
+            )
+        if unknown := sorted(set(self.contracts) - set(self.services)):
+            raise ValueError(
+                f"contracts for unknown services: {unknown}; a contract describes an entry "
+                "of services"
             )
         return self
 

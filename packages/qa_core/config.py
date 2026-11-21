@@ -188,3 +188,22 @@ def load_mock_definition(path: Path) -> MockDefinition:
         raise ConfigError(
             path, [describe_validation_error(error) for error in exc.errors()]
         ) from None
+
+
+def load_openapi_document(path: Path) -> dict[str, Any]:
+    """Read an OpenAPI document (YAML or JSON) for contract mode (TASK-054)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise ConfigError(path, ["contract file not found"]) from None
+    except (IsADirectoryError, UnicodeDecodeError, OSError) as exc:
+        raise ConfigError(path, [f"cannot read contract file: {exc}"]) from None
+    try:
+        data = yaml.load(text, Loader=_StrictLoader)
+    except yaml.MarkedYAMLError as exc:
+        raise ConfigError(path, [_describe_yaml_error(exc)]) from None
+    except yaml.YAMLError as exc:
+        raise ConfigError(path, [f"invalid YAML: {exc}"]) from None
+    if not isinstance(data, dict):
+        raise ConfigError(path, ["expected an OpenAPI document (a mapping)"])
+    return data

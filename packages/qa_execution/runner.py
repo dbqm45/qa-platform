@@ -28,6 +28,7 @@ from typing import Any, Protocol
 from qa_core.redaction import MissingSecretError, Redactor
 from qa_core.steps.registry import StepArguments, StepParameterError, StepRegistry
 from qa_execution.adapters import ExecutionContext, TestAdapter
+from qa_execution.contracts import Contract
 from qa_execution.errors import RootCause, TestEnvironmentError, classify, describe
 from qa_execution.hooks import run_hooks
 from qa_execution.log import LOG_FILENAME, ExecutionLog
@@ -42,7 +43,12 @@ from qa_execution.timeouts import (
     deadline,
 )
 from qa_schemas.compilation import CompiledSpecification
-from qa_schemas.enums import DependencyMode, ExecutionStatus, FailureClassification
+from qa_schemas.enums import (
+    DependencyMode,
+    ExecutionMode,
+    ExecutionStatus,
+    FailureClassification,
+)
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.execution import TestExecution
 from qa_schemas.plan import ExecutionPlan
@@ -84,6 +90,8 @@ class ExecutionRequest:
     """Lift the read-only guard of a protected environment."""
     mocks: Mapping[str, MockService] = field(default_factory=dict)
     """Mock definitions for the plan's ``mock`` dependencies, by service name."""
+    contracts: Mapping[str, Contract] = field(default_factory=dict)
+    """OpenAPI contracts to check responses against (contract mode)."""
 
 
 @dataclass
@@ -164,6 +172,7 @@ class LocalRunner:
             builtins={"RUN_ID": execution.id},
             allow_writes=request.allow_writes,
             mocks=request.mocks,
+            contracts=request.contracts,
         )
         adapters = [adapter_class() for adapter_class in selection.adapters]
         providers = {
@@ -184,6 +193,7 @@ class LocalRunner:
             environment=execution.environment,
             adapters=[adapter.name for adapter in adapters],
             mocked=sorted(request.mocks),
+            contracts=sorted(request.contracts),
             step_timeout_seconds=plan.settings.step_timeout_seconds,
             timeout_seconds=plan.settings.timeout_seconds,
         )
@@ -246,6 +256,8 @@ class LocalRunner:
             raise NotExecutableError(
                 f"plan {plan.id!r} mocks {', '.join(missing)}, but no mock definition was given"
             )
+        if plan.mode is ExecutionMode.CONTRACT and not request.contracts:
+            raise NotExecutableError(f"plan {plan.id!r} is a contract plan without contracts")
         if extra := sorted(set(request.mocks) - mocked):
             raise NotExecutableError(
                 f"mock definitions for {', '.join(extra)} are not part of plan {plan.id!r}"

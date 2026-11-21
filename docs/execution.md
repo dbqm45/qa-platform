@@ -119,6 +119,50 @@ its failure, and where the report, `results.json` and log are. A unique prefix
 of the id is enough; an unknown or ambiguous id exits with `1`. An execution
 interrupted before it finished has no `results.json`; `show` says so.
 
+### Contract mode
+
+```yaml
+environments:
+  - name: local
+    services:
+      api: http://localhost:8000/api
+    contracts:
+      api: openapi/shop-api.yaml    # OpenAPI 3.0 or 3.1, relative to the project root
+```
+
+```bash
+qa test --scenario api.feature --mode contract
+```
+
+runs API scenarios (no browser) and checks **every response** of a service
+that has a contract against its OpenAPI document, in addition to the
+scenario's own assertions:
+
+| Check | On violation |
+|-------|--------------|
+| the operation (method + path template) is in the document | `error` / `requirement_ambiguity`: `contract 'api' does not describe POST /reset` |
+| the status code is documented (exact, then `2XX`, then `default`) | `failed` / `application_bug`: `GET /orders: status 401 is not in the contract (documented: 200)` |
+| the content type is documented | `failed` / `application_bug` |
+| a JSON body matches the schema (`$ref`s resolved) | `failed` / `application_bug`: `POST /orders (201): the body does not match the contract at $.total: 6.0 is not of type 'string'` |
+
+- An undocumented operation is not called an application bug: the test may
+  be calling the wrong endpoint, or the contract may be incomplete; someone
+  has to decide which.
+- Paths are matched below the service URL; literal paths win over templates
+  (`/orders/new` before `/orders/{id}`); the query string and `servers` are
+  ignored. Requests themselves are not validated.
+- OpenAPI 3.1 schemas are JSON Schema 2020-12; for 3.0, `nullable: true` is
+  translated.
+- The operations that passed are listed in each test case's `http.json`
+  (`contract_checks`).
+- **Without the full stack:** with `--mock api` the mock's responses go
+  through the same checks, so scenarios and mock files are verified against
+  the contract while the application does not run at all.
+- `qa rerun` of a contract execution checks the contract again. Other modes
+  never check contracts.
+- `examples/openapi/shop-api.yaml` is the contract of the Example Shop API;
+  `qa test --scenario api.feature --mode contract` in `examples/` passes.
+
 ### Allowed hosts
 
 Tests talk to the environment they target and nothing else. Requests may go
@@ -353,7 +397,7 @@ from the capabilities the steps need:
 | `fe` | `browser` only | `browser` only |
 | `be` | no `browser` | anything without `browser` |
 | `full` | `browser` and something else | `browser` and something else |
-| `contract` | not implemented yet | never |
+| `contract` | API steps, no `browser`; `contracts:` in the environment | never: `--mode contract` ([Contract mode](#contract-mode)) |
 
 An explicit mode that does not fit (e.g. `--mode be` for browser steps) is
 rejected and the specification is not executed.

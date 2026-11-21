@@ -78,6 +78,7 @@ fields are rejected then), not when `qa.yaml` is loaded.
 | `project.environments[].setup` | list of `METHOD path` | `[]` | Requests sent before every execution, e.g. `POST /reset` ([execution.md](execution.md#setup-and-cleanup-requests)). |
 | `project.environments[].cleanup` | list of `METHOD path` | `[]` | Requests sent after every execution, also when it failed. |
 | `project.environments[].allowed_hosts` | list of host names | `[]` | Hosts besides those of `base_url` and `services` that tests may contact; `*.example.com` for subdomains, `*` for any ([execution.md](execution.md#allowed-hosts)). |
+| `project.environments[].contracts` | map service → OpenAPI file | `{}` | Checked in `--mode contract` ([execution.md](execution.md#contract-mode)). Each key must be a `services` entry. |
 | `project.environments[].mocks` | map service → file | `{}` | Mock files that can replace a service with `qa test --mock NAME` ([execution.md](execution.md#mocked-services)). Each key must be a `services` entry. |
 | `project.environments[].protected` | bool | `false` | Read-only: tests may not change data here unless `--allow-writes` is given ([execution.md](execution.md#protected-environments)). |
 

@@ -8,6 +8,7 @@ dependencies = [
     "cucumber-expressions>=17",
     "gherkin-official>=29",
     "httpx>=0.28",
+    "jsonschema>=4.23",
     "playwright>=1.49",
     "pydantic>=2.10",
     "pyyaml>=6.0",
@@ -25,6 +26,7 @@ dev = [
     "mypy>=1.13",
     "types-pyyaml>=6.0",
     "pytest-cov>=6",
+    "types-jsonschema>=4.26.0.20261006",
 ]
 
 [build-system]

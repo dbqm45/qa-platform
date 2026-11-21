@@ -124,7 +124,7 @@ Execution:
 - One execution target (local, in process); no parallelism.
 - Mocks replace only requests the test or the browser sends, not calls the
   application makes from its own servers (TASK-051, `qa test --mock`).
-- `contract` mode is not implemented (TASK-054, P1).
+- `contract` mode checks responses only, not requests (TASK-054).
 - Only the `functional` test category runs.
 - Hard timeouts need POSIX signals and the main thread. On Windows, or when
   embedded in a thread, only adapter timeouts apply (ADR-019).
@@ -154,5 +154,5 @@ Recommended next, in order:
 3. ~~TASK-060 (JSON report beyond `results.json`) and TASK-064 (rerun failed).~~ Done.
 4. ~~TASK-056 (test data isolation), then mocked dependencies (completes
    TASK-051).~~ Done.
-5. TASK-054 (contract mode), TASK-061 (fingerprinting), ~~TASK-069 (safety
+5. ~~TASK-054 (contract mode)~~ done, TASK-061 (fingerprinting), ~~TASK-069 (safety
    policies)~~ done (host allowlist).

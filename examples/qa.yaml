@@ -20,6 +20,8 @@ project:
       services:
         api: http://localhost:8000/api
       timeout_seconds: 10                # how long assertions wait before failing
+      contracts:                         # checked with qa test --mode contract
+        api: openapi/shop-api.yaml
       # setup: ["POST /reset"]           # sent before every execution (fresh test data)
       # cleanup: ["POST /reset"]         # sent after it, also when it failed
     - name: staging

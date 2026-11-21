@@ -85,7 +85,8 @@ def test_same_specification_different_plans() -> None:
         ({"http"}, FE, "fe mode runs browser steps only"),
         ({"browser"}, FULL, "use fe instead"),
         ({"http"}, FULL, "use be instead"),
-        ({"browser"}, CONTRACT, "contract mode is not implemented yet"),
+        ({"browser"}, CONTRACT, "contract mode checks API responses without a browser"),
+        ({"browser", "http"}, CONTRACT, "contract mode checks API responses without a browser"),
     ],
 )
 def test_unsupported_combinations_are_rejected(
@@ -131,3 +132,14 @@ def test_short_execution_timeout_also_limits_steps() -> None:
 def test_default_execution_timeout_is_bounded() -> None:
     plan = create_plan(_spec("browser"), Environment(name="local"), ADAPTERS)
     assert plan.settings.timeout_seconds == 600
+
+
+def test_contract_mode_needs_contracts_and_is_never_inferred() -> None:
+    with_contract = Environment.model_validate(
+        {"name": "local", "services": {"api": "http://x/api"}, "contracts": {"api": "c.yaml"}}
+    )
+    plan = create_plan(_spec("http"), with_contract, ADAPTERS, mode=CONTRACT)
+    assert (plan.mode, plan.id) == (CONTRACT, f"{plan.specification_id}.contract.local")
+    assert create_plan(_spec("http"), with_contract, ADAPTERS).mode is ExecutionMode.BE
+    with pytest.raises(PlanningError, match="contract mode needs contracts: in environment"):
+        create_plan(_spec("http"), Environment(name="local"), ADAPTERS, mode=CONTRACT)

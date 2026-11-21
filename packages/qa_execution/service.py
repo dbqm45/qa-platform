@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from qa_core.config import load_config, load_mock_definition
+from qa_core.config import ConfigError, load_config, load_mock_definition, load_openapi_document
 from qa_core.files import write_text_atomically
 from qa_core.init import PLATFORM_DIRNAME
 from qa_core.scenarios.compilation import compile_documents
@@ -21,6 +21,7 @@ from qa_core.scenarios.sources import LocalFileSource
 from qa_core.steps.registry import StepRegistry
 from qa_core.storage import DATABASE_FILENAME, ExecutionRepository, ProjectRepository, open_database
 from qa_execution.builtin import builtin_adapters, builtin_registry
+from qa_execution.contracts import Contract, ContractError
 from qa_execution.http.config import HttpConfig
 from qa_execution.mocks import MockService
 from qa_execution.planning import PlanningError, create_plan
@@ -161,6 +162,7 @@ def run_file(
     adapters = adapters or builtin_adapters()
     mock_services = load_mocks(root, environment, mocks)
     mocked = tuple(sorted(mock_services))
+    contracts = load_contracts(root, environment) if mode is ExecutionMode.CONTRACT else {}
 
     discovery = LocalFileSource(root, []).read_file(Path(scenario))
     if discovery.problems:
@@ -209,6 +211,7 @@ def run_file(
                     rerun_of,
                     allow_writes,
                     mock_services,
+                    contracts,
                 )
             )
     return TestRun(
@@ -237,6 +240,7 @@ def _run_one(
     rerun_of: str | None = None,
     allow_writes: bool = False,
     mocks: Mapping[str, MockService] | None = None,
+    contracts: Mapping[str, Contract] | None = None,
 ) -> SpecificationRun:
     mocks = mocks or {}
     if not compiled.status.is_executable:
@@ -275,6 +279,7 @@ def _run_one(
                 rerun_of=rerun_of,
                 allow_writes=allow_writes,
                 mocks=mocks,
+                contracts=contracts or {},
             )
         )
     except (PlanningError, NotExecutableError) as error:
@@ -350,6 +355,26 @@ def load_mocks(
             definition=load_mock_definition(path),
         )
     return services
+
+
+def load_contracts(root: Path, environment: Environment) -> dict[str, Contract]:
+    """The environment's OpenAPI contracts, by service.
+
+    Raises:
+        TestRunError: a contract file is outside the project.
+        ConfigError: a contract file is missing, invalid YAML, or not OpenAPI 3.
+    """
+    contracts: dict[str, Contract] = {}
+    for name, file in environment.contracts.items():
+        path = (root / file).resolve()
+        if not path.is_relative_to(root):
+            raise TestRunError(f"contract file {file} for {name!r} is outside the project")
+        document = load_openapi_document(path)
+        try:
+            contracts[name] = Contract.load(name, str(environment.services[name]), document)
+        except ContractError as error:
+            raise ConfigError(path, [str(error)]) from None
+    return contracts
 
 
 def _api_service(config: ProjectConfig) -> str:

@@ -193,6 +193,8 @@ file), validate the result before writing, and keep existing comments.
 
 Tests only reach the environment's own hosts (plus its `allowed_hosts`), so a
 copied URL or a redirect cannot send them, or their credentials, elsewhere.
+`qa test --mode contract` also checks every API response against the
+service's OpenAPI document.
 `qa test --mock api` answers a service from a mock file instead of the real
 one (see `docs/execution.md`).
 `--protected` on `env add` makes an environment read-only (`qa test

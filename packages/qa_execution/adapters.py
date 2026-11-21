@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from qa_core.redaction import Redactor, resolve_references
+from qa_execution.contracts import Contract
 from qa_execution.mocks import MockService
 from qa_execution.policy import HostPolicy
 from qa_schemas.evidence import EvidenceReference
@@ -55,6 +56,8 @@ class ExecutionContext:
     allow_writes: bool = False
     mocks: Mapping[str, MockService] = field(default_factory=dict)
     """Services answered from mock files in this execution, by service name."""
+    contracts: Mapping[str, Contract] = field(default_factory=dict)
+    """Contract mode: responses of these services are checked (TASK-054)."""
 
     @property
     def hosts(self) -> HostPolicy:

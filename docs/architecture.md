@@ -551,6 +551,20 @@ Windows or outside the main thread; adapter timeouts still apply there. Hard
 limits sit 2 s above the step timeout so adapter timeouts, which have better
 messages, normally fire first.
 
+### ADR-020: Contract checks with jsonschema, on the responses tests receive
+
+Contract mode (TASK-054) checks each response a test receives against the
+service's OpenAPI document, inside `HttpSession.send`, with `jsonschema`
+(Draft 2020-12, `$ref`s resolved through a `referencing` registry holding the
+whole document). OpenAPI 3.0 `nullable` is translated; nothing else is.
+
+Alternatives: `openapi-core` (validates requests and responses, but is a
+much larger dependency with its own request/response model) and generated
+tests (Schemathesis, planned as TASK-104, a different job: it invents
+requests). Checking what the scenarios already do keeps the mode
+deterministic and reuses mocks, evidence and classification unchanged.
+`jsonschema` is the one new runtime dependency.
+
 ## Execution log and history (TASK-037, TASK-063)
 
 `qa_execution.log.ExecutionLog` appends redacted JSON lines to

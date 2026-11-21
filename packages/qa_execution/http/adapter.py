@@ -23,6 +23,8 @@ from qa_execution.adapters import (
     TestAdapter,
     evidence_folder,
 )
+from qa_execution.contracts import Contract
+from qa_execution.contracts import find as find_contract
 from qa_execution.errors import TestEnvironmentError
 from qa_execution.http.config import HttpConfig
 from qa_execution.mocks import MockingTransport, MockService, find
@@ -49,6 +51,10 @@ class HttpSession:
     environment: str = ""
     mocks: Mapping[str, MockService] = field(default_factory=dict)
     """Mocked services: their requests never reach the real service (TASK-051)."""
+    contracts: Mapping[str, Contract] = field(default_factory=dict)
+    """Contract mode: responses of these services are checked (TASK-054)."""
+    checked: list[str] = field(default_factory=list)
+    """Operations whose responses passed the contract check, in order."""
 
     def send(
         self, method: str, url: str, *, json_body: Any = None, raw_body: str | None = None
@@ -82,6 +88,16 @@ class HttpSession:
             raise TestEnvironmentError(f"cannot send {method} {url}: {exc}") from None
         self.last_response = response
         self._record(response, round((time.perf_counter() - started) * 1000))
+        absolute = str(response.request.url)
+        if (contract := find_contract(self.contracts, absolute)) is not None:
+            operation = contract.check(
+                response.request.method,
+                absolute,
+                response.status_code,
+                response.headers.get("content-type", ""),
+                response.content,
+            )
+            self.checked.append(f"{contract.service}: {operation} {response.status_code}")
         return response
 
     def _absolute(self, url: str) -> str:
@@ -184,6 +200,7 @@ class HttpxAdapter(TestAdapter):
             read_only=execution.read_only,
             environment=environment.name,
             mocks=execution.mocks,
+            contracts=execution.contracts,
         )
 
     def collect_evidence(self, test_case: TestCase) -> list[EvidenceReference]:
@@ -194,7 +211,10 @@ class HttpxAdapter(TestAdapter):
             folder = evidence_folder(test_case.id)
             directory = execution.evidence_dir / folder
             directory.mkdir(parents=True, exist_ok=True)
-            data = execution.redactor.redact_data({"exchanges": session.exchanges})
+            record: dict[str, Any] = {"exchanges": session.exchanges}
+            if session.checked:
+                record["contract_checks"] = session.checked
+            data = execution.redactor.redact_data(record)
             (directory / "http.json").write_text(json.dumps(data, indent=2) + "\n")
             count = len(session.exchanges)
             return [
