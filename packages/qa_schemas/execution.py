@@ -28,6 +28,8 @@ class TestExecution(SchemaModel):
     created_at: AwareDatetime
     started_at: AwareDatetime | None = None
     finished_at: AwareDatetime | None = None
+    rerun_of: StableId | None = None
+    """The execution this one repeats (``qa rerun``), if any."""
 
     @model_validator(mode="after")
     def _consistent_timestamps(self) -> Self:

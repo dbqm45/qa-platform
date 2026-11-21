@@ -96,6 +96,7 @@ class ExecutionRepository:
                         _to_db(execution.created_at),
                         _to_db(execution.started_at),
                         _to_db(execution.finished_at),
+                        execution.rerun_of,
                     ),
                 )
         except sqlite3.IntegrityError as exc:

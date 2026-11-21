@@ -328,8 +328,17 @@ Results: .qa/executions/20261121-112839-6ba3f5/results.json
 Log:     .qa/executions/20261121-112839-6ba3f5/execution.log
 ```
 
-Statuses, failure classifications, modes and timeouts are explained in
-[execution.md](execution.md).
+After fixing a failure, run only what failed in an execution again:
+
+```bash
+qa rerun --failed-only 20261121-113407
+```
+
+In CI, add `--json build/qa-summary.json` to `qa test` (or `qa rerun`) for one
+machine-readable summary of the run.
+
+Statuses, failure classifications, modes, timeouts, reruns and the JSON
+summary are explained in [execution.md](execution.md).
 
 ## 6. Secrets
 

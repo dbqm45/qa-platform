@@ -471,6 +471,13 @@ change it waits for.
 - `qa_execution.service.run_scenario()` is the whole `qa test` flow: locate the
   file, compile it, plan and run each ready specification with `LocalRunner`,
   write `results.json` atomically. The CLI only formats `TestRun`.
+- `qa_execution.rerun.rerun_execution()` (`qa rerun`, TASK-064) reads the
+  original `results.json`, which records the scenario `source` (path and
+  content hash), and runs that file again through the same
+  `service.run_file()` with a `select` function that keeps the specification
+  and, with `--failed-only`, the test cases that did not pass, matched by id
+  *and* name. `TestExecution.rerun_of` links the new execution to the original
+  (database migration 2 adds the column).
 - Execution metadata goes to SQLite (queryable history); the full report is a
   JSON file next to its evidence (easy to inspect, archive or hand to CI).
 

@@ -26,6 +26,7 @@ from qa_core.scenarios.sources import LocalFileSource
 from qa_core.storage import StorageError
 from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_execution.history import ExecutionNotFoundError, list_executions, show_execution
+from qa_execution.rerun import NothingToRerunError, rerun_execution
 from qa_execution.service import TestRun, TestRunError, run_scenario
 from qa_execution.summary import summarize
 from qa_schemas.compilation import CompiledSpecification
@@ -349,6 +350,51 @@ def test_command(
         raise typer.Exit(EXIT_ERROR)
 
 
+@app.command("rerun")
+def rerun_command(
+    execution_id: Annotated[str, typer.Argument(help="Execution id, or a unique prefix of it.")],
+    failed_only: Annotated[
+        bool, typer.Option("--failed-only", help="Only the test cases that did not pass.")
+    ] = False,
+    timeout: Annotated[
+        float | None,
+        typer.Option(help="Limit for the execution in seconds (default 600).", min=1, max=86_400),
+    ] = None,
+    json_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--json", help="Also write a JSON summary of the run (for CI).", dir_okay=False
+        ),
+    ] = None,
+    config: ConfigOption = Path(CONFIG_FILENAME),
+) -> None:
+    """Run an earlier execution again: same environment, mode and category,
+    the scenario as it is now.
+
+    Exits with 0 only if everything that was rerun passed.
+    """
+    with _cli_errors():
+        try:
+            run = rerun_execution(
+                config,
+                execution_id,
+                failed_only=failed_only,
+                steps=builtin_registry(),
+                adapters=builtin_adapters(),
+                timeout=timeout,
+            )
+        except NothingToRerunError as error:
+            typer.echo(f"Nothing to rerun: {error}")
+            return
+    for warning in run.warnings:
+        typer.echo(f"Warning: {warning}")
+    _print_test_run(run)
+    if json_path is not None:
+        _write_summary(run, config, json_path)
+    if not run.ok:
+        raise typer.Exit(EXIT_ERROR)
+
+
 def _write_summary(run: TestRun, config: Path, path: Path) -> None:
     summary = summarize(run, config.resolve().parent)
     try:
@@ -460,6 +506,8 @@ def execution_show(
         f"Plan          {execution.plan_id} ({execution.mode.value}, {execution.category.value})"
     )
     typer.echo(f"Environment   {execution.environment}")
+    if execution.rerun_of:
+        typer.echo(f"Rerun of      {execution.rerun_of}")
     if execution.started_at:
         typer.echo(f"Started       {execution.started_at.astimezone():%Y-%m-%d %H:%M:%S %Z}")
     if execution.started_at and execution.finished_at:

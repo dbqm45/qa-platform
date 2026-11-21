@@ -199,3 +199,28 @@ def test_execution_requires_registered_project(db_path: Path) -> None:
 def test_update_of_unknown_execution_is_rejected(db_path: Path) -> None:
     with open_database(db_path) as db, pytest.raises(StorageError, match="does not exist"):
         ExecutionRepository(db).update(_execution())
+
+
+def test_version_1_database_is_upgraded_and_keeps_its_executions(db_path: Path) -> None:
+    """A .qa/qa.db created before TASK-064 gains rerun_of; old rows read as None."""
+    from qa_core.storage.migrations import MIGRATIONS
+
+    with sqlite3.connect(db_path) as raw:
+        raw.executescript(MIGRATIONS[0])
+        raw.execute("PRAGMA user_version = 1")
+        raw.execute("INSERT INTO projects VALUES ('shop', 'Shop', 't', 't')")
+        raw.execute(
+            "INSERT INTO executions VALUES ('exec-old', 'shop', 's', 'p', 'fe', 'functional', "
+            "'local', 'passed', ?, NULL, NULL)",
+            (T0.isoformat(),),
+        )
+    raw.close()
+
+    with open_database(db_path) as db:
+        assert schema_version(db) == SCHEMA_VERSION == 2
+        repo = ExecutionRepository(db)
+        old = repo.get("exec-old")
+        assert old is not None and old.rerun_of is None
+        repo.add(_execution("exec-new", rerun_of="exec-old"))
+        new = repo.get("exec-new")
+        assert new is not None and new.rerun_of == "exec-old"

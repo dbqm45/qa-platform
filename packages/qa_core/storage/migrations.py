@@ -38,6 +38,10 @@ MIGRATIONS: tuple[str, ...] = (
 
     CREATE INDEX executions_by_project ON executions (project_id, created_at);
     """,
+    # 2: link a rerun to the execution it repeats (TASK-064)
+    """
+    ALTER TABLE executions ADD COLUMN rerun_of TEXT;
+    """,
 )
 
 SCHEMA_VERSION = len(MIGRATIONS)

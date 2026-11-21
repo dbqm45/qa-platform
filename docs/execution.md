@@ -119,6 +119,38 @@ its failure, and where the report, `results.json` and log are. A unique prefix
 of the id is enough; an unknown or ambiguous id exits with `1`. An execution
 interrupted before it finished has no `results.json`; `show` says so.
 
+### Rerun
+
+```bash
+qa rerun --failed-only 20261121-0945
+```
+
+runs an earlier execution again: the same specification, environment, mode
+and category. `--failed-only` takes only the test cases that did not pass
+(failed, error or cancelled); without it every test case runs again.
+`--timeout` and `--json` work as for `qa test`.
+
+- The scenario file is compiled again, so the rerun uses the scenario **as it
+  is now**. If it changed since the original execution, a warning says so:
+
+  ```
+  Warning: scenario 'Placing an order' changed since execution 20261121-125743-89884e; running the current version
+  ```
+
+- A test case is rerun only if both its id and its name still match. Outline
+  test cases are numbered by position (`orders.order-product:2`), so after a
+  row of `Examples` is removed or moved, the same number can name a different
+  example; that case is skipped with a warning instead of running the wrong
+  example in its place. If none is left, the rerun stops with an error.
+- The rerun is a normal execution with its own results, evidence and report.
+  `qa execution show` names the execution it repeats (`Rerun of`).
+- If every test case passed, `--failed-only` prints `Nothing to rerun` and
+  exits with `0`.
+- An execution cannot be rerun when its `results.json` is missing (interrupted)
+  or was written before reruns existed, when its environment was removed from
+  `qa.yaml`, or when its scenario no longer exists. Each exits with `1` and
+  says which.
+
 ### Log
 
 Every execution writes `.qa/executions/<id>/execution.log`: one JSON object

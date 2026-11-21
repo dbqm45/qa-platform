@@ -8,6 +8,7 @@ Results of every execution are stored in ``.qa/executions/<id>/``:
 - execution metadata (status, timestamps) is also kept in ``.qa/qa.db``.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -62,6 +63,8 @@ class TestRun:
     environment: str
     issues: tuple[ValidationIssue, ...] = ()
     runs: tuple[SpecificationRun, ...] = field(default_factory=tuple)
+    warnings: tuple[str, ...] = ()
+    """Problems that did not stop the run (e.g. a rerun of a changed scenario)."""
 
     @property
     def errors(self) -> tuple[ValidationIssue, ...]:
@@ -106,10 +109,46 @@ def run_scenario(
     root = config_path.resolve().parent
     target = _environment(config, environment)
     relative = _locate(root, config, scenario)
+    return run_file(
+        config_path,
+        config,
+        PurePosixPath(relative.as_posix()),
+        target,
+        mode=mode,
+        category=category,
+        steps=steps,
+        adapters=adapters,
+        timeout=timeout,
+    )
+
+
+Select = Callable[[tuple[CompiledSpecification, ...]], tuple[CompiledSpecification, ...]]
+
+
+def run_file(
+    config_path: Path,
+    config: ProjectConfig,
+    scenario: PurePosixPath,
+    environment: Environment,
+    *,
+    mode: ExecutionMode | None = None,
+    category: TestCategory = TestCategory.FUNCTIONAL,
+    steps: StepRegistry | None = None,
+    adapters: AdapterRegistry | None = None,
+    timeout: float | None = None,
+    select: Select | None = None,
+    rerun_of: str | None = None,
+) -> TestRun:
+    """Compile one scenario file (relative to the project root) and execute it.
+
+    ``select`` picks the specifications to execute from the compiled ones (all
+    by default); ``rerun_of`` links the new executions to the one they repeat.
+    """
+    root = config_path.resolve().parent
     steps = steps or builtin_registry()
     adapters = adapters or builtin_adapters()
 
-    discovery = LocalFileSource(root, []).read_file(relative)
+    discovery = LocalFileSource(root, []).read_file(Path(scenario))
     if discovery.problems:
         problem = discovery.problems[0]
         raise TestRunError(f"{problem.path}: {problem.message}")
@@ -120,14 +159,14 @@ def run_scenario(
         available_capabilities=adapters.available_capabilities,
     )
     [document] = report.documents
-    path = PurePosixPath(relative.as_posix())
     if document.blocked:
         return TestRun(
             project=config.project.id,
-            scenario=path,
-            environment=target.name,
+            scenario=scenario,
+            environment=environment.name,
             issues=document.issues,
         )
+    specifications = select(document.specifications) if select else document.specifications
 
     output = executions_dir(config_path)
     runs: list[SpecificationRun] = []
@@ -140,16 +179,25 @@ def run_scenario(
             store=ExecutionRepository(db),
             adapter_config=config.adapters,
         )
-        for compiled in document.specifications:
+        for compiled in specifications:
             runs.append(
                 _run_one(
-                    runner, config, compiled, target, adapters, mode, category, output, timeout
+                    runner,
+                    config,
+                    compiled,
+                    environment,
+                    adapters,
+                    mode,
+                    category,
+                    output,
+                    timeout,
+                    rerun_of,
                 )
             )
     return TestRun(
         project=config.project.id,
-        scenario=path,
-        environment=target.name,
+        scenario=scenario,
+        environment=environment.name,
         issues=document.issues,
         runs=tuple(runs),
     )
@@ -168,6 +216,7 @@ def _run_one(
     category: TestCategory,
     output: Path,
     timeout: float | None,
+    rerun_of: str | None = None,
 ) -> SpecificationRun:
     if not compiled.status.is_executable:
         reasons = "; ".join(compiled.reasons) or compiled.status.value
@@ -183,7 +232,9 @@ def _run_one(
             category=category,
             execution_timeout=timeout,
         )
-        report = runner.run(ExecutionRequest(config.project.id, compiled, plan, environment))
+        report = runner.run(
+            ExecutionRequest(config.project.id, compiled, plan, environment, rerun_of=rerun_of)
+        )
     except (PlanningError, NotExecutableError) as error:
         return SpecificationRun(compiled, problem=f"not executed: {error}")
 

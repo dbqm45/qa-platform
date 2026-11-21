@@ -75,6 +75,8 @@ class ExecutionRequest:
     compiled: CompiledSpecification
     plan: ExecutionPlan
     environment: Environment
+    rerun_of: str | None = None
+    """Id of the execution this one repeats."""
 
 
 @dataclass
@@ -138,6 +140,7 @@ class LocalRunner:
             category=plan.category,
             environment=request.environment.name,
             created_at=now,
+            rerun_of=request.rerun_of,
         )
         self._persist(execution, new=True)
 
@@ -189,6 +192,7 @@ class LocalRunner:
 
             report = ExecutionReport(
                 execution=self._finish(execution, _overall(results, failure)),
+                source=spec.source,
                 results=tuple(results),
                 failure=failure,
                 cleanup_errors=tuple(cleanup_errors),

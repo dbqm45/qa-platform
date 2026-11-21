@@ -12,6 +12,7 @@ from qa_schemas.base import SchemaModel, StableId
 from qa_schemas.enums import ExecutionStatus, FailureClassification
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.execution import TestExecution
+from qa_schemas.specification import SourceReference
 
 RESULTS_SCHEMA_VERSION: Literal[1] = 1
 """Version of ``results.json`` (``ExecutionReport``)."""
@@ -83,6 +84,9 @@ class ExecutionReport(SchemaModel):
     schema_version: Literal[1] = RESULTS_SCHEMA_VERSION
     """Absent in files written before it existed; they read as version 1."""
     execution: TestExecution
+    source: SourceReference | None = None
+    """The scenario the specification was compiled from, as it was at execution time.
+    Absent in files written before it existed."""
     results: tuple[TestResult, ...] = ()
     failure: Failure | None = None
     """Problem that affected the whole execution (e.g. an adapter could not start)."""
