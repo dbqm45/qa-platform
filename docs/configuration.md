@@ -105,6 +105,14 @@ Invalid configuration in qa.yaml:
 Secrets are referenced as `${NAME}` and come from environment variables; see
 [`secrets.md`](secrets.md).
 
+## Inspecting the configuration
+
+`qa project show [-c PATH]` prints the project, its repositories,
+environments (base URL, services, timeout, variable names, headers as
+written), the scenario directory with the number of scenario files, and the
+available adapters with their capabilities. It shows no secret values:
+`${NAME}` references stay unresolved and variable values are left out.
+
 ## Editing from the command line
 
 | Command | Effect |

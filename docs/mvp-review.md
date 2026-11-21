@@ -96,9 +96,10 @@ Known security limitations are listed below.
 - Errors name the cause and the fix (getting-started lists the real
   messages). The guide replay found and fixed two rough edges: `qa test` now
   names unresolved steps, and "not found" no longer repeats paths.
-- Gaps, all P1: no `qa project show` (TASK-015), no `qa --version`
-  (TASK-065), no rerun of failed tests (TASK-064). `qa project env add`
+- Gaps, all P1: no rerun of failed tests (TASK-064). `qa project env add`
   cannot edit an existing environment; that needs a manual edit of `qa.yaml`.
+  (`qa project show` and `qa --version` were added after the review, with
+  TASK-015 and TASK-065.)
 
 ## Documentation
 
@@ -146,7 +147,7 @@ Recommended next, in order:
 1. ~~Run a dependency vulnerability scan and add a CI workflow (lint, types,
    tests with a browser).~~ Done: `.github/workflows/ci.yml` (part of
    post-MVP TASK-128/129).
-2. TASK-065 (CLI error messages, `--version`) and TASK-015 (`qa project show`).
+2. ~~TASK-065 (CLI error messages, `--version`) and TASK-015 (`qa project show`).~~ Done.
 3. TASK-060 (JSON report beyond `results.json`) and TASK-064 (rerun failed).
 4. TASK-056 (test data isolation), then mocked dependencies (completes
    TASK-051).

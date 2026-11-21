@@ -89,6 +89,8 @@
 | TASK-058 | Done — metadata in SQLite, results.json per execution, retrieval via qa execution |
 | TASK-057 | Done — qa_schemas.results (TestResult, StepResult, Failure, ExecutionReport) |
 | TASK-075 | Done — MVP frozen; review in docs/mvp-review.md |
+| TASK-015 | Done — qa project show (no secret values) |
+| TASK-065 | Done — qa --version, Ctrl-C exits 130 (execution cancelled), internal errors in one line (QA_DEBUG=1 for traceback) |
 | TASK-128 | In progress — CI workflow (lint, types, tests with Chromium, pip-audit) in .github/workflows/ci.yml |
 
 ---

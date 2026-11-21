@@ -190,7 +190,14 @@ uv run qa project env add staging --base-url https://staging.example.com --servi
 
 Both commands use `qa.yaml` in the current directory (`-c PATH` for another
 file), validate the result before writing, and keep existing comments.
-Exit codes: `0` success, `1` error (configuration, validation, storage), `2` invalid command-line usage.
+
+`uv run qa project show` prints the whole configuration (without secret
+values); `uv run qa --version` prints the platform version.
+
+Exit codes: `0` success, `1` error (configuration, validation, storage),
+`2` invalid command-line usage, `130` interrupted with Ctrl-C (a running
+execution is recorded as `cancelled`). An unexpected error prints one line
+(`Internal error: ...`); run with `QA_DEBUG=1` to see the traceback.
 
 ## Scenarios
 

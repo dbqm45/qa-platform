@@ -97,6 +97,8 @@ source qa-platform/.venv/bin/activate
 Alternatively prefix every command with
 `uv run --project <path-to-qa-platform>`.
 
+`qa project show` prints what the platform reads from `qa.yaml` at any time.
+
 The steps below test the Example Shop from section 3, so keep it running.
 
 ### 4.1 Create the project
@@ -381,6 +383,14 @@ the whole file. Rule codes are listed in [scenarios.md](scenarios.md).
 **`Error: scenario file x.feature not found (looked for: ...)`**
 The message lists every place that was tried. Scenario files must be inside
 the project.
+
+**`Internal error: <ExceptionType>: ...`**
+A bug in the platform, not in your project. Run the command again with
+`QA_DEBUG=1` in front of it to see the full traceback, and report it.
+
+**`Interrupted.`** (exit code 130)
+You pressed Ctrl-C. The execution that was running is kept in the history as
+`cancelled`; browser and HTTP clients are closed.
 
 **`Error: unknown environment 'prod'; known: local, shop`**
 Use one of the listed names with `-e`, or add the environment with

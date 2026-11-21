@@ -1,5 +1,6 @@
 """Entry point of the ``qa`` command."""
 
+import os
 from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -7,8 +8,10 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from typer.exceptions import TyperException
 
-from qa_core.config import CONFIG_FILENAME, ConfigError
+from qa_core import __version__
+from qa_core.config import CONFIG_FILENAME, ConfigError, load_config
 from qa_core.config_edit import ConfigEditError, add_environment, add_repository
 from qa_core.init import InitError, initialize_project
 from qa_core.scenarios.compilation import source_step_key
@@ -18,6 +21,7 @@ from qa_core.scenarios.service import (
     validate_project,
     write_specifications,
 )
+from qa_core.scenarios.sources import LocalFileSource
 from qa_core.storage import StorageError
 from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_execution.history import ExecutionNotFoundError, list_executions, show_execution
@@ -54,14 +58,29 @@ project_app.add_typer(repo_app, name="repo")
 project_app.add_typer(env_app, name="env")
 
 EXIT_ERROR = 1
+EXIT_INTERRUPTED = 130  # 128 + SIGINT, as shells report it
+DEBUG_VARIABLE = "QA_DEBUG"
 
 ConfigOption = Annotated[
     Path, typer.Option("--config", "-c", help="Path to the project configuration file.")
 ]
 
 
+def _show_version(value: bool) -> None:
+    if value:
+        typer.echo(f"qa-platform {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
-def main() -> None:
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version", callback=_show_version, is_eager=True, help="Show the version and exit."
+        ),
+    ] = False,
+) -> None:
     """Local-first, deterministic QA automation platform."""
 
 
@@ -108,6 +127,54 @@ def repo_add(
     with _cli_errors():
         add_repository(config, name, path=path, url=url)
     typer.echo(f"Added repository '{name}' to {config}")
+
+
+@project_app.command("show")
+def project_show(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
+    """Show the project configuration: repositories, environments, scenarios, adapters.
+
+    Secret values are never shown: headers appear as written (with ``${NAME}``
+    references), variables by name only.
+    """
+    with _cli_errors():
+        loaded = load_config(config)
+        root = config.resolve().parent
+        discovery = LocalFileSource.for_project(loaded.project, root).discover()
+    project = loaded.project
+    typer.echo(f"Project      {project.name} ({project.id})")
+    typer.echo(f"Config       {_display_path(config.resolve())}")
+    scenario_dir = _display_path(root / project.scenario_dir)
+    typer.echo(f"Scenarios    {scenario_dir}  ({_plural(len(discovery.documents), 'file')})")
+    for problem in discovery.problems:
+        typer.echo(f"             {problem.path}: {problem.message}")
+
+    typer.echo("\nRepositories")
+    if not project.repositories:
+        typer.echo("  (none)")
+    for repo in project.repositories:
+        location = ", ".join(str(x) for x in (repo.path, repo.url) if x is not None)
+        typer.echo(f"  {repo.name:<12} {location}")
+
+    typer.echo("\nEnvironments")
+    if not project.environments:
+        typer.echo("  (none)")
+    for env in project.environments:
+        default = "  (default)" if env.name == project.default_environment else ""
+        typer.echo(f"  {env.name}{default}")
+        typer.echo(f"    base_url   {env.base_url or '-'}")
+        for name, url in env.services.items():
+            typer.echo(f"    service    {name} = {url}")
+        typer.echo(f"    timeout    {env.timeout_seconds:g} s")
+        if env.variables:
+            typer.echo(f"    variables  {', '.join(sorted(env.variables))}")
+        for name, value in env.headers.items():
+            typer.echo(f"    header     {name}: {value}")
+
+    typer.echo("\nAdapters")
+    for adapter in builtin_adapters().adapters:
+        configured = "configured" if adapter.name in loaded.adapters else "defaults"
+        capabilities = ", ".join(sorted(adapter.capabilities))
+        typer.echo(f"  {adapter.name:<12} {capabilities}  ({configured})")
 
 
 @env_app.command("add")
@@ -438,4 +505,19 @@ def _cli_errors() -> Iterator[None]:
         ExecutionNotFoundError,
     ) as error:
         typer.echo(f"Error: {error}", err=True)
+        raise typer.Exit(EXIT_ERROR) from None
+    except (typer.Exit, typer.Abort, TyperException):
+        raise  # normal exits and usage errors are handled by Typer
+    except KeyboardInterrupt:
+        # The runner has already marked a running execution as cancelled.
+        typer.echo("\nInterrupted.", err=True)
+        raise typer.Exit(EXIT_INTERRUPTED) from None
+    except Exception as error:
+        if os.environ.get(DEBUG_VARIABLE) == "1":
+            raise
+        typer.echo(
+            f"Internal error: {type(error).__name__}: {error}\n"
+            f"This is a bug in qa-platform. Run again with {DEBUG_VARIABLE}=1 for the traceback.",
+            err=True,
+        )
         raise typer.Exit(EXIT_ERROR) from None
