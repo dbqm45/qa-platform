@@ -39,7 +39,7 @@ from qa_execution.timeouts import (
     deadline,
 )
 from qa_schemas.compilation import CompiledSpecification
-from qa_schemas.enums import ExecutionStatus, FailureClassification
+from qa_schemas.enums import DependencyMode, ExecutionStatus, FailureClassification
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.execution import TestExecution
 from qa_schemas.plan import ExecutionPlan
@@ -223,6 +223,12 @@ class LocalRunner:
             raise NotExecutableError(
                 f"plan {plan.id!r} targets environment {plan.environment!r}, "
                 f"not {request.environment.name!r}"
+            )
+        mocked = [d.name for d in plan.dependencies if d.mode is DependencyMode.MOCK]
+        if mocked:  # not implemented; running against the real service would mislead
+            raise NotExecutableError(
+                f"plan {plan.id!r} mocks {', '.join(mocked)}; mocked dependencies are not "
+                "supported yet"
             )
         try:
             return self._adapters.select(spec.required_capabilities, allowed=plan.adapters)

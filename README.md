@@ -4,8 +4,9 @@ Local-first QA automation platform. It turns Gherkin scenarios into normalized
 Test Specifications and executes them deterministically through adapters
 (Playwright for UI, HTTPX for APIs), producing results, evidence and reports.
 
-> **Status:** Gherkin scenarios run end to end in a browser (FE) and against JSON
-> APIs (BE), with evidence and an HTML report.
+> **Status:** MVP complete and frozen ([review](docs/mvp-review.md)). Gherkin
+> scenarios run end to end in a browser (FE), against JSON APIs (BE) or both
+> (FULL), with evidence, history and an HTML report.
 
 ## Quick start
 
@@ -235,7 +236,8 @@ API to try the platform on; see [`examples/README.md`](examples/README.md).
 
 ## Roadmap
 
-The full task backlog lives in [`docs/backlog.md`](docs/backlog.md).
+The full task backlog lives in [`docs/backlog.md`](docs/backlog.md); the MVP
+review (scope, known limitations, next steps) in [`docs/mvp-review.md`](docs/mvp-review.md).
 
 **First milestone:** execute one Gherkin login scenario against a local
 application using Playwright, save a screenshot and generate a test report.

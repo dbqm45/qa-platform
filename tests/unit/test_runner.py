@@ -26,6 +26,7 @@ from qa_execution.targets import LocalTarget
 from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.enums import (
     CompilationStatus,
+    DependencyMode,
     ExecutionMode,
     ExecutionStatus,
     FailureClassification,
@@ -35,7 +36,7 @@ from qa_schemas.enums import (
 )
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.execution import TestExecution
-from qa_schemas.plan import ExecutionPlan, ExecutionSettings
+from qa_schemas.plan import Dependency, ExecutionPlan, ExecutionSettings
 from qa_schemas.project import Environment
 from qa_schemas.results import ExecutionReport
 from qa_schemas.scenario import ScenarioDocument, content_hash
@@ -393,6 +394,18 @@ def test_plan_for_another_specification_is_rejected(tmp_path: Path) -> None:
     plan = _plan(compiled).model_copy(update={"specification_id": "other"})
     with pytest.raises(NotExecutableError, match="is for specification 'other'"):
         _runner(tmp_path).run(ExecutionRequest("shop", compiled, plan, Environment(name="local")))
+
+
+def test_plan_with_mocked_dependency_is_rejected(tmp_path: Path, store: RecordingStore) -> None:
+    compiled = _compiled(*PASSING)
+    plan = _plan(compiled).model_copy(
+        update={"dependencies": (Dependency(name="api", mode=DependencyMode.MOCK),)}
+    )
+    with pytest.raises(NotExecutableError, match="mocks api; mocked dependencies are not"):
+        _runner(tmp_path, store).run(
+            ExecutionRequest("shop", compiled, plan, Environment(name="local"))
+        )
+    assert store.history == []
 
 
 def test_plan_for_another_environment_is_rejected(tmp_path: Path) -> None:

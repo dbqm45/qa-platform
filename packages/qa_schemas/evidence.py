@@ -1,6 +1,6 @@
 """References to evidence files collected during execution (TASK-029).
 
-The full result schema follows in TASK-057; evidence collection in TASK-044/048.
+The result schema that refers to evidence is in qa_schemas.results (TASK-057).
 """
 
 from pathlib import PurePosixPath

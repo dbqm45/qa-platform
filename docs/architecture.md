@@ -21,14 +21,17 @@ qa-platform/
 | Package | Responsibility | May depend on |
 |---------|----------------|---------------|
 | `qa_schemas` | Pydantic models for Test Specification, Execution Plan, results, configuration. No behaviour beyond validation. | — |
-| `qa_core` | Domain logic: projects, scenario parsing, compilation, step and adapter registries. | `qa_schemas` |
-| `qa_execution` | Execution engine, execution targets, test adapters (Playwright, HTTPX). | `qa_schemas`, `qa_core` |
+| `qa_core` | Domain logic: projects, scenario parsing, compilation, step registry, storage. | `qa_schemas` |
+| `qa_execution` | Execution engine, adapter registry, test adapters (Playwright, HTTPX), the `qa test` use case and execution history. | `qa_schemas`, `qa_core`, `qa_reporting` |
 | `qa_reporting` | HTML/JSON reports built from results and evidence. | `qa_schemas` |
 | `qa_cli` | Argument parsing and output only; delegates all work to the packages. | all of the above |
 
 Dependencies point only in the directions listed. No package imports `qa_cli`,
 and `qa_reporting` does not import `qa_execution` — it works from persisted
-results, so reports can be regenerated without re-running tests.
+results, so reports can be regenerated without re-running tests. `qa_execution`
+writes the report at the end of a run (and points to it from the history), so
+it may call `qa_reporting`. These rules are enforced by
+`tests/unit/test_architecture.py`.
 
 ## Decisions
 
@@ -103,7 +106,7 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 
 `Project` validates cross-references: repository and environment names are
 unique, and `default_environment` must name a defined environment.
-Secrets and environment variables are added in TASK-055.
+Environment variables, headers and secret references: [`configuration.md`](configuration.md), [`secrets.md`](secrets.md).
 
 ## Test Specification vs Execution Plan (TASK-008, TASK-009)
 
