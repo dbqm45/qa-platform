@@ -4,7 +4,43 @@ Local-first QA automation platform. It turns Gherkin scenarios into normalized
 Test Specifications and executes them deterministically through adapters
 (Playwright for UI, HTTPX for APIs), producing results, evidence and reports.
 
-> **Status:** early development — Phase 0 (project setup).
+> **Status:** first milestone reached — Gherkin scenarios run end to end in a
+> browser, with evidence and an HTML report. API testing (Phase 8) is next.
+
+## Quick start
+
+Install (see [Installation](#installation)), then in one terminal start the
+example application:
+
+```bash
+uv run python examples/app/shop_app.py --port 8000
+```
+
+and in another run its scenarios:
+
+```bash
+cd examples
+```
+
+```bash
+uv run qa init
+```
+
+```bash
+uv run qa test --scenario login.feature
+```
+
+```
+login.successful-login  (scenarios/login.feature:8)
+  PASSED    Successful login  (0.8s)
+  execution 20261121-080102-1a2b3c: PASSED  -> .qa/executions/20261121-080102-1a2b3c/results.json
+  report: .qa/executions/20261121-080102-1a2b3c/report.html
+...
+Ran 3 specifications from scenarios/login.feature on local: 3 passed
+```
+
+Open the printed `report.html` in a browser. Try `contact.feature` too, or
+change an expected text in a scenario to see a failure with a screenshot.
 
 ## Principles
 

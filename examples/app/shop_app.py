@@ -18,7 +18,8 @@ Business rules
      message at most 200 characters; consent must be given.
   4. Orders: product must be in the catalog; quantity an integer from 1 to 10.
 
-Test users: alice / correct-password (Alice), bob / bob-password (Bob).
+Test users: alice / correct-password (Alice), bob / bob-password (Bob),
+carol / carol-password (Carol, used by the lockout scenario).
 The state lives in memory; POST /api/reset restores it so tests are repeatable.
 This is an example application: it is not secure and must not be exposed.
 """
@@ -38,6 +39,7 @@ from urllib.parse import parse_qs
 USERS = {
     "alice": {"password": "correct-password", "name": "Alice"},
     "bob": {"password": "bob-password", "name": "Bob"},
+    "carol": {"password": "carol-password", "name": "Carol"},
 }
 CATALOG = {"apple": 1.20, "pear": 1.50, "plum": 0.80}
 TOPICS = {"order": "Order question", "delivery": "Delivery", "other": "Something else"}

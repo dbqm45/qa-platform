@@ -46,7 +46,7 @@ ADAPTERS = AdapterRegistry([Browser, Http])
 
 def _spec(*capabilities: str) -> TestSpecification:
     spec = TestSpecification.model_validate_json(
-        (ROOT / "examples/specifications/login.spec.json").read_text()
+        (ROOT / "tests/fixtures/login/login.spec.json").read_text()
     )
     return spec.model_copy(update={"required_capabilities": tuple(sorted(capabilities))})
 

@@ -70,10 +70,10 @@ def test_example_feature_compiles_to_the_sample_specification() -> None:
     feature = _feature(
         (ROOT / "examples/scenarios/login.feature").read_text(), "scenarios/login.feature"
     )
-    [spec] = convert_feature(feature, BASE)
+    first, *_ = convert_feature(feature, BASE)  # the sample is the first scenario
 
     sample = (ROOT / "examples/specifications/login.spec.json").read_text()
-    assert spec.model_dump_json(indent=2) + "\n" == sample
+    assert first.model_dump_json(indent=2) + "\n" == sample
 
 
 # --- Steps -------------------------------------------------------------------

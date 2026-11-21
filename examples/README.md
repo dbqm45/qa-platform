@@ -4,8 +4,8 @@
 |------|------------|
 | `app/shop_app.py` | **Example Shop**, a small application to test the platform against |
 | `qa.yaml` | project configuration for the Example Shop |
-| `scenarios/` | Gherkin scenarios |
-| `specifications/`, `plans/` | sample Test Specification and Execution Plans (schema reference) |
+| `scenarios/` | Gherkin scenarios for the Example Shop: `login.feature`, `contact.feature` |
+| `specifications/`, `plans/` | sample Test Specification (compiled from the first login scenario) and Execution Plans, as schema reference |
 
 ## Example Shop
 
@@ -31,7 +31,8 @@ Then open <http://localhost:8000/login>.
 | `POST /api/orders` | `{"product", "quantity"}` → 201 order or 422 `{"errors": [...]}` |
 | `POST /api/reset` | restore the initial state (for repeatable tests) |
 
-Test users: `alice` / `correct-password` (Alice), `bob` / `bob-password` (Bob).
+Test users: `alice` / `correct-password` (Alice), `bob` / `bob-password` (Bob),
+`carol` / `carol-password` (Carol; the lockout scenario locks this account).
 
 Business rules:
 
@@ -43,3 +44,27 @@ Business rules:
 
 State is kept in memory. The application is deliberately simple and not
 secure: never expose it outside your machine.
+
+## Running the scenarios
+
+With the Example Shop running on port 8000:
+
+```bash
+cd examples
+```
+
+```bash
+uv run qa init
+```
+
+```bash
+uv run qa test --scenario login.feature
+```
+
+```bash
+uv run qa test --scenario contact.feature
+```
+
+The scenarios are repeatable without restarting the application: the
+lockout scenario uses its own user (`carol`), whose account simply stays
+locked. `POST /api/reset` restores everything.

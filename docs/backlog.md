@@ -67,6 +67,8 @@
 | TASK-070 | Done |
 | TASK-062 | Done |
 | TASK-059 | Done |
+| TASK-071 | In progress — login (success, invalid, lockout) and contact form (success, validation) done; API success / validation and UI-to-API scenarios need Phase 8 |
+| TASK-072 | Done — first milestone reached (tests/integration/test_vertical_slice.py) |
 | TASK-050 | In progress — minimal: mode inference/validation, adapter selection; dependencies and FE/BE/FULL specifics in TASK-051..053 |
 | TASK-058 | In progress — metadata in SQLite and results.json per execution; retrieval command in TASK-063 |
 

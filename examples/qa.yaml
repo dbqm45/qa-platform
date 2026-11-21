@@ -19,6 +19,7 @@ project:
       base_url: http://localhost:8000
       services:
         api: http://localhost:8000/api
+      timeout_seconds: 10                # how long assertions wait before failing
     - name: staging
       base_url: https://staging.example.com
       services:

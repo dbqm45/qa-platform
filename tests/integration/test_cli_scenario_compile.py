@@ -18,7 +18,7 @@ from qa_schemas.enums import StepKind
 runner = CliRunner()
 ROOT = Path(__file__).parents[2]
 
-LOGIN = (ROOT / "examples/scenarios/login.feature").read_text()
+LOGIN = (ROOT / "tests/fixtures/login/scenarios/login.feature").read_text()
 
 
 def _login_registry() -> StepRegistry:

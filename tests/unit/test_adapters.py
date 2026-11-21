@@ -72,7 +72,7 @@ def _context(tmp_path: Path) -> ExecutionContext:
 
 def _spec() -> TestSpecification:
     return TestSpecification.model_validate_json(
-        (ROOT / "examples/specifications/login.spec.json").read_text()
+        (ROOT / "tests/fixtures/login/login.spec.json").read_text()
     )
 
 

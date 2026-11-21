@@ -55,10 +55,12 @@ def test_example_project_scenarios_are_discovered() -> None:
     result = LocalFileSource.for_project(config.project, root).discover()
 
     assert result.ok
-    [document] = result.documents
-    assert document.path == PurePosixPath("scenarios/login.feature")
-    assert document.format is ScenarioFormat.GHERKIN
-    assert document.content.startswith("@smoke\nFeature: Login")
+    assert [d.path for d in result.documents] == [
+        PurePosixPath("scenarios/contact.feature"),
+        PurePosixPath("scenarios/login.feature"),
+    ]
+    assert all(d.format is ScenarioFormat.GHERKIN for d in result.documents)
+    assert result.documents[1].content.startswith("@smoke\nFeature: Login")
 
 
 # --- Discovery ---------------------------------------------------------------

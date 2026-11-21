@@ -72,7 +72,7 @@ def _feature(content: str) -> ParsedFeature:
 
 
 def test_example_login_feature() -> None:
-    path = ROOT / "examples/scenarios/login.feature"
+    path = ROOT / "tests/fixtures/login/scenarios/login.feature"
     feature = _feature(path.read_text())
 
     assert (feature.name, feature.tags, feature.language, feature.line) == (

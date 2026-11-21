@@ -13,7 +13,7 @@ from qa_schemas.enums import StepKind
 from qa_schemas.specification import SPECIFICATION_SCHEMA_VERSION, TestSpecification
 
 ROOT = Path(__file__).parents[2]
-SAMPLE = ROOT / "examples/specifications/login.spec.json"
+SAMPLE = ROOT / "tests/fixtures/login/login.spec.json"
 
 
 def _sample() -> dict[str, Any]:
@@ -38,7 +38,7 @@ def test_sample_specification_is_valid_and_canonical() -> None:
 def test_sample_traces_back_to_its_scenario() -> None:
     """The source hash is the scenario's content hash, so outdated specs can be detected."""
     spec = _spec()
-    project = ROOT / "examples"
+    project = ROOT / "tests/fixtures/login"
     [document] = LocalFileSource(project, [Path("scenarios")]).discover().documents
     feature = parse_document(document).feature
     assert feature is not None
