@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from qa_core.steps.registry import StepDefinition, StepRegistry, kinds_compatible
 from qa_schemas.base import SchemaModel
+from qa_schemas.compilation import UnresolvedStep
 from qa_schemas.enums import StepKind
 from qa_schemas.specification import StepParameter, TestSpecification
 
@@ -18,15 +19,6 @@ class StepResolution:
     parameters: dict[str, StepParameter]
     problem: str | None
     """Why the step is not resolved; None when it is."""
-
-
-class UnresolvedStep(SchemaModel):
-    test_case_id: str
-    step_index: int
-    line: int | None
-    kind: StepKind
-    text: str
-    reason: str
 
 
 class SpecificationResolution(SchemaModel):

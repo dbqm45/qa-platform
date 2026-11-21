@@ -9,14 +9,14 @@ from qa_schemas.enums import StepKind
 
 registry = StepRegistry()
 
+
 @registry.step(
-    "auth.sign-in",                                          # id = normalized action
+    "auth.sign-in",  # id = normalized action
     "the user signs in as {string} with password {string}",  # pattern
     kind=StepKind.ACTION,
-    capability="browser",                                    # adapter capability needed
+    capability="browser",  # adapter capability needed
 )
-def sign_in(context, username: str, password: str) -> None:
-    ...
+def sign_in(context, username: str, password: str) -> None: ...
 ```
 
 | Part | Rules |

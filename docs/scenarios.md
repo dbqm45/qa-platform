@@ -92,3 +92,36 @@ the later ones get `-2`, `-3`, …; a name without usable characters becomes
 
 Known limitation: tags on an `Examples` section are not carried into the
 specification.
+
+## Compiling
+
+```bash
+qa scenario compile [-c qa.yaml]
+```
+
+Validates, converts and resolves every scenario, then writes one file per
+specification to `.qa/specifications/<id>.json` (stale files from removed
+scenarios are deleted). Each file holds the specification together with its
+compilation status:
+
+| Status | Meaning | Executable |
+|--------|---------|------------|
+| `ready` | every step is resolved and every test case has an expectation | yes |
+| `needs_review` | every step is resolved, but a test case has no expectation step, so it would pass without checking anything | no |
+| `blocked` | a step cannot be resolved (unknown, ambiguous or of the wrong kind) | no |
+| `unsupported` | a required capability is not provided by any adapter (checked once adapters exist) | no |
+
+A file with validation errors is reported as `BLOCKED` as a whole and produces
+no specifications; fix it with the help of `qa scenario validate`.
+
+```
+BLOCKED      login.successful-login  (scenarios/login.feature:7)
+  1 step(s) cannot be resolved
+  line 8: action 'the user signs in as "alice"': no step definition matches this text
+READY        checkout.pay-by-card  (scenarios/checkout.feature:3)
+
+Compiled 2 specifications from 2 files: 1 ready, 0 needs review, 1 blocked, 0 unsupported
+```
+
+Exit code `1` if any file has errors or any specification is `blocked`.
+Recompiling unchanged scenarios produces byte-identical files.

@@ -1,5 +1,6 @@
 """Entry point of the ``qa`` command."""
 
+from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,8 +11,16 @@ import typer
 from qa_core.config import CONFIG_FILENAME, ConfigError
 from qa_core.config_edit import ConfigEditError, add_environment, add_repository
 from qa_core.init import InitError, initialize_project
-from qa_core.scenarios.service import validate_project
+from qa_core.scenarios.compilation import source_step_key
+from qa_core.scenarios.service import (
+    compile_project,
+    specifications_dir,
+    validate_project,
+    write_specifications,
+)
+from qa_core.steps.builtin import builtin_registry
 from qa_core.storage import StorageError
+from qa_schemas.enums import CompilationStatus, IssueSeverity
 
 app = typer.Typer(
     name="qa",
@@ -148,6 +157,60 @@ def scenario_validate(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
     if report.issues:
         typer.echo("")
     typer.echo(summary)
+    if not report.ok:
+        raise typer.Exit(EXIT_ERROR)
+
+
+@scenario_app.command("compile")
+def scenario_compile(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
+    """Compile scenarios into Test Specifications and save them in .qa/specifications.
+
+    Exits with 1 if a file has errors or a specification is BLOCKED.
+    """
+    with _cli_errors():
+        report = compile_project(config, builtin_registry())
+        output = specifications_dir(config)
+        write_specifications(report, output)
+
+    for document in report.documents:
+        errors = [i for i in document.issues if i.severity is IssueSeverity.ERROR]
+        if errors:
+            typer.echo(f"{'BLOCKED':<13}{document.path}  ({_plural(len(errors), 'error')})")
+            for issue in errors:
+                typer.echo(f"  {issue.location()}: [{issue.code}] {issue.message}")
+        for compiled in document.specifications:
+            spec = compiled.specification
+            typer.echo(
+                f"{compiled.status.value.upper():<13}{spec.id}  "
+                f"({spec.source.path}:{spec.source.line})"
+            )
+            for reason in compiled.reasons:
+                typer.echo(f"  {reason}")
+            cases_per_step = Counter(source_step_key(step) for step in compiled.unresolved)
+            shown: set[tuple[int | None, str]] = set()
+            for step in compiled.unresolved:
+                key = source_step_key(step)
+                if key in shown:  # outline cases repeat the same source step
+                    continue
+                shown.add(key)
+                repeated = (
+                    f" (in {cases_per_step[key]} test cases)" if cases_per_step[key] > 1 else ""
+                )
+                typer.echo(
+                    f"  line {step.line}: {step.kind.value} {step.text!r}: {step.reason}{repeated}"
+                )
+
+    counts = ", ".join(
+        f"{report.count(status)} {status.value.replace('_', ' ')}" for status in CompilationStatus
+    )
+    blocked_files = sum(1 for d in report.documents if d.blocked)
+    typer.echo("")
+    typer.echo(
+        f"Compiled {_plural(len(report.specifications), 'specification')} from "
+        f"{_plural(len(report.documents), 'file')}: {counts}"
+        + (f"; {_plural(blocked_files, 'file')} with errors" if blocked_files else "")
+    )
+    typer.echo(f"Specifications written to {output}")
     if not report.ok:
         raise typer.Exit(EXIT_ERROR)
 

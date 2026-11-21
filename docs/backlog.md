@@ -46,6 +46,8 @@
 | TASK-023 | Done |
 | TASK-024 | Done |
 | TASK-025 | Done — registry core (registration, conflicts, resolution); step categories and implementations in TASK-031 |
+| TASK-026 | Done — UNSUPPORTED is produced once adapters exist (TASK-030) |
+| TASK-027 | Done |
 
 ---
 

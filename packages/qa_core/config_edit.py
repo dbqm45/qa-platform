@@ -12,8 +12,6 @@ file stays readable; the models only validate them.
 """
 
 import io
-import os
-import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -23,6 +21,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from qa_core.config import ConfigError, describe_validation_error, load_config, parse_config
+from qa_core.files import write_text_atomically
 from qa_schemas.config import ProjectConfig
 from qa_schemas.project import Environment, Repository
 
@@ -128,19 +127,5 @@ def _edit(config_path: Path, change: Callable[[CommentedMap], None]) -> ProjectC
         raise ConfigEditError(
             "the change would make the configuration invalid: " + "; ".join(error.issues)
         ) from None
-    _replace_atomically(config_path, new_text)
+    write_text_atomically(config_path, new_text, keep_mode=True)
     return config
-
-
-def _replace_atomically(path: Path, text: str) -> None:
-    """Write to a temporary file next to ``path`` and rename it over the original."""
-    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
-    tmp = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as file:
-            file.write(text)
-        tmp.chmod(path.stat().st_mode & 0o777)
-        tmp.replace(path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise

@@ -95,6 +95,7 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | `qa_schemas.plan` | `ExecutionPlan`, `ExecutionSettings`, `Dependency` |
 | `qa_schemas.config` | `ProjectConfig` (root of `qa.yaml`) |
 | `qa_schemas.execution` | `TestExecution` |
+| `qa_schemas.compilation` | `CompiledSpecification`, `UnresolvedStep` (format of `.qa/specifications/*.json`) |
 | `qa_schemas.scenario` | `ScenarioDocument` (raw input); `ParseResult`, `ParsedFeature`, `Scenario`, `ScenarioStep`, `Examples`, `ParseIssue` |
 
 `Project` validates cross-references: repository and environment names are
@@ -352,3 +353,26 @@ Author-facing rules: [`steps.md`](steps.md).
   matches; multiple matches are reported as ambiguous instead of picking one.
 - Expectation steps resolve only to expectation definitions, so an
   unrecognised assertion can never become an executable no-op.
+
+## Compilation statuses and `qa scenario compile` (TASK-026, TASK-027)
+
+`qa_core.scenarios.compilation.compile_documents()` runs validate → convert →
+resolve → status for each parsed document and returns a `CompilationReport`.
+`qa_core.scenarios.service.compile_project()` adds discovery, and
+`write_specifications()` stores `CompiledSpecification` files atomically in
+`.qa/specifications/` (a platform-owned directory, so stale files are removed).
+
+Status rules (first match wins): unresolved step → `blocked`; missing
+capability (only when `available_capabilities` is given) → `unsupported`;
+test case without expectation → `needs_review`; otherwise `ready`. Only
+`ready` is executable; the runner must check `status.is_executable`.
+
+Built-in step definitions come from `qa_core.steps.builtin.builtin_registry()`,
+which is empty until TASK-031.
+
+### ADR-014: Validation errors block the whole file
+
+Mapping a finding to a single scenario by line number is unreliable (e.g. a
+Rule tag error sits before the Rule's scenarios), so a file with validation
+errors produces no specifications at all. The fix is always reported by
+`qa scenario validate`, and the rule is simple to explain.
