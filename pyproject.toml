@@ -1,0 +1,104 @@
+[project]
+name = "qa-platform"
+version = "0.1.0"
+description = "Local-first, deterministic QA automation platform."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "cucumber-expressions>=17",
+    "gherkin-official>=29",
+    "httpx>=0.28",
+    "jsonschema>=4.23",
+    "playwright>=1.49",
+    "pydantic>=2.10",
+    "pyyaml>=6.0",
+    "ruamel-yaml>=0.18",
+    "typer>=0.15",
+]
+
+[project.scripts]
+qa = "qa_cli.main:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-pyyaml>=6.0",
+    "pytest-cov>=6",
+    "types-jsonschema>=4.26.0.20261006",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "apps/cli/qa_cli",
+    "packages/qa_core",
+    "packages/qa_schemas",
+    "packages/qa_execution",
+    "packages/qa_reporting",
+]
+
+# --- Ruff: linting and formatting -----------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["apps/cli", "packages", "tests", "examples/app"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# --- mypy: static type checking -------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["apps/cli", "packages", "tests", "examples/app"]
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+pretty = true
+
+[[tool.mypy.overrides]]
+# cucumber-expressions ships no type information.
+module = ["cucumber_expressions.*"]
+ignore_missing_imports = true
+
+# --- pytest ---------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.3"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "integration: uses real dependencies (browser, HTTP, SQLite); applied automatically to tests/integration/",
+]
+xfail_strict = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# --- Coverage (`uv run pytest --cov`) ---------------------------------------
+[tool.coverage.run]
+source = ["apps/cli", "packages"]
+# Playwright's sync API switches greenlets; without this, code run after a
+# Playwright call is reported as not covered.
+concurrency = ["thread", "greenlet"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

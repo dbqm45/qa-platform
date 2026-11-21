@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "login.successful-login",
+  "source": {
+    "path": "scenarios/login.feature",
+    "feature": "Login",
+    "scenario": "Successful login",
+    "line": 8,
+    "content_hash": "sha256:87793d2cc6e0caa4c3a1f52e2db7afdf508d77c867f6a4089c2fe07afbfe9105"
+  },
+  "test_cases": [
+    {
+      "id": "login.successful-login",
+      "name": "Successful login",
+      "steps": [
+        {
+          "kind": "precondition",
+          "keyword": "Given",
+          "text": "the user opens \"/login\"",
+          "line": 6,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "action",
+          "keyword": "When",
+          "text": "the user fills \"Username\" with \"alice\"",
+          "line": 9,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "action",
+          "keyword": "And",
+          "text": "the user fills \"Password\" with \"correct-password\"",
+          "line": 10,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "action",
+          "keyword": "And",
+          "text": "the user clicks \"Log in\"",
+          "line": 11,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "expectation",
+          "keyword": "Then",
+          "text": "the URL is \"/dashboard\"",
+          "line": 12,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "expectation",
+          "keyword": "And",
+          "text": "\"testid:greeting\" is visible",
+          "line": 13,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "expectation",
+          "keyword": "And",
+          "text": "the page shows \"Welcome, Alice\"",
+          "line": 14,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        }
+      ],
+      "parameters": {}
+    }
+  ],
+  "required_capabilities": [],
+  "metadata": {
+    "tags": [
+      "smoke"
+    ],
+    "description": null
+  }
+}

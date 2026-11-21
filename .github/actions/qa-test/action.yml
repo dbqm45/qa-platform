@@ -1,0 +1,115 @@
+name: QA platform tests
+description: >
+  Run the Gherkin scenarios of a qa-platform project, publish a summary in the
+  job summary, upload reports and evidence, and fail if a test did not pass.
+
+inputs:
+  project:
+    description: Directory of the test project (the one with qa.yaml).
+    default: "."
+  scenarios:
+    description: >
+      Scenario files relative to the project: bash globs (** allowed), several
+      separated by spaces; {a,b} braces are not expanded.
+    default: "scenarios/**/*.feature"
+  environment:
+    description: Target environment from qa.yaml; default is its default_environment.
+    default: ""
+  args:
+    description: Extra qa test arguments, e.g. "--mode contract --mock api".
+    default: ""
+  browser:
+    description: Install Chromium for browser steps ("true" or "false").
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded artifact with reports, evidence and summaries.
+    default: qa-results
+
+outputs:
+  ok:
+    description: '"true" if every scenario file was executed and passed.'
+    value: ${{ steps.run.outputs.ok }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v7
+
+    - name: Install the QA platform
+      shell: bash
+      run: |
+        platform="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
+        # the exact versions from uv.lock, as tested by the platform's own CI
+        uv sync --locked --no-dev --project "$platform"
+        echo "$platform/.venv/bin" >> "$GITHUB_PATH"
+
+    - name: Install Chromium
+      if: inputs.browser == 'true'
+      shell: bash
+      run: playwright install --with-deps chromium
+
+    - name: Run scenarios
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.project }}
+      env:
+        QA_SCENARIOS: ${{ inputs.scenarios }}
+        QA_ENVIRONMENT: ${{ inputs.environment }}
+        QA_ARGS: ${{ inputs.args }}
+      run: |
+        shopt -s globstar nullglob
+        # a fresh checkout has no .qa/ (it is not committed); init only adds what is missing
+        qa init . > /dev/null
+        out="build/qa-summaries"
+        rm -rf "$out" && mkdir -p "$out"
+        read -ra extra <<< "$QA_ARGS"
+        env_args=()
+        if [ -n "$QA_ENVIRONMENT" ]; then env_args=(--environment "$QA_ENVIRONMENT"); fi
+
+        # shellcheck disable=SC2206  # the glob must expand
+        files=($QA_SCENARIOS)
+        if [ ${#files[@]} -eq 0 ]; then
+          echo "::error::no scenario files match '$QA_SCENARIOS' in ${{ inputs.project }}"
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        missing=()
+        for file in "${files[@]}"; do
+          name="${file//\//__}"
+          echo "::group::qa test $file"
+          qa test --scenario "$file" "${env_args[@]}" "${extra[@]}" --json "$out/${name%.*}.json" || true
+          echo "::endgroup::"
+          # a request that cannot run at all (e.g. unknown environment) writes no summary
+          [ -f "$out/${name%.*}.json" ] || missing+=("$file")
+        done
+
+        ok=true
+        summaries=("$out"/*.json)
+        if [ ${#summaries[@]} -gt 0 ]; then
+          qa summary --markdown "${summaries[@]}" >> "$GITHUB_STEP_SUMMARY" || true
+          qa summary "${summaries[@]}" || ok=false
+        fi
+        for file in "${missing[@]}"; do
+          echo "::error file=$file::qa test could not run $file (see the log above)"
+          echo "- ❌ \`$file\`: could not be run, see the job log" >> "$GITHUB_STEP_SUMMARY"
+          ok=false
+        done
+        echo "ok=$ok" >> "$GITHUB_OUTPUT"
+
+    - name: Upload reports and evidence
+      if: always()
+      uses: actions/upload-artifact@v5
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ inputs.project }}/.qa/executions
+          ${{ inputs.project }}/build/qa-summaries
+        if-no-files-found: ignore
+
+    - name: Fail if a test did not pass
+      if: steps.run.outputs.ok != 'true'
+      shell: bash
+      run: |
+        echo "::error::not every scenario passed; see the job summary and the ${{ inputs.artifact-name }} artifact"
+        exit 1

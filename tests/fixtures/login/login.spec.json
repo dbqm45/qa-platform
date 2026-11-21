@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "login.successful-login",
+  "source": {
+    "path": "scenarios/login.feature",
+    "feature": "Login",
+    "scenario": "Successful login",
+    "line": 7,
+    "content_hash": "sha256:d6bfac11b5fcb7b6934b883855c8d28ccc45eef72a532aaf903099a17d6efd2e"
+  },
+  "test_cases": [
+    {
+      "id": "login.successful-login",
+      "name": "Successful login",
+      "steps": [
+        {
+          "kind": "precondition",
+          "keyword": "Given",
+          "text": "the login page is open",
+          "line": 5,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "action",
+          "keyword": "When",
+          "text": "the user signs in as \"alice\" with password \"correct-password\"",
+          "line": 8,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "expectation",
+          "keyword": "Then",
+          "text": "the dashboard is shown",
+          "line": 9,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        },
+        {
+          "kind": "expectation",
+          "keyword": "And",
+          "text": "the greeting contains \"Alice\"",
+          "line": 10,
+          "data_table": null,
+          "doc_string": null,
+          "action": null,
+          "parameters": {}
+        }
+      ],
+      "parameters": {}
+    }
+  ],
+  "required_capabilities": [],
+  "metadata": {
+    "tags": [
+      "smoke"
+    ],
+    "description": null
+  }
+}

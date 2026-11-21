@@ -1,0 +1,39 @@
+# Example GitHub Actions workflow for a qa-platform test project.
+# Copy it to .github/workflows/qa.yml in the repository that holds qa.yaml.
+# The platform's own CI runs the same action against examples/ on every push.
+name: QA
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1-5"   # weekday mornings, against staging
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Browser and API scenarios on staging
+        uses: dbqm45/qa-platform/.github/actions/qa-test@main   # pin a commit SHA or tag
+        with:
+          environment: staging
+        env:
+          # secrets referenced as ${NAME} in qa.yaml and scenarios
+          SHOP_PASSWORD: ${{ secrets.SHOP_PASSWORD }}
+          SHOP_API_KEY: ${{ secrets.SHOP_API_KEY }}
+
+      - name: API contract, without the application (mocks checked against OpenAPI)
+        uses: dbqm45/qa-platform/.github/actions/qa-test@main
+        with:
+          scenarios: scenarios/api/**/*.feature
+          environment: local
+          args: --mode contract --mock api
+          browser: "false"
+          artifact-name: qa-contract-results
