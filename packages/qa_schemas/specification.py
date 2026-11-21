@@ -11,6 +11,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, PositiveInt, StringConstraints, model_validator
 
 from qa_schemas.base import (
+    TAG_PATTERN,
     ContentHash,
     Identifier,
     NonEmptyStr,
@@ -19,13 +20,14 @@ from qa_schemas.base import (
     find_duplicates,
 )
 from qa_schemas.enums import StepKind
+from qa_schemas.scenario import DocString
 
 SPECIFICATION_SCHEMA_VERSION: Literal[1] = 1
 """Bump on any incompatible change to the specification format."""
 
 StepText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
-Tag = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}$")]
+Tag = Annotated[str, StringConstraints(pattern=TAG_PATTERN)]
 """Tag without the leading ``@``, e.g. ``smoke`` or ``jira:SHOP-12``."""
 
 
@@ -38,6 +40,8 @@ class SourceReference(SchemaModel):
     scenario: NonEmptyStr
     line: PositiveInt | None = None
     content_hash: ContentHash
+    """Hash of the scenario's meaningful content (``Scenario.content_hash``), so a
+    specification can be recognized as outdated when its scenario changes."""
 
     @model_validator(mode="after")
     def _path_is_relative(self) -> Self:
@@ -55,6 +59,9 @@ class Step(SchemaModel):
     text: StepText
     """Step text without the keyword."""
     line: PositiveInt | None = None
+    data_table: tuple[tuple[str, ...], ...] | None = None
+    """Table argument, first row included (it is usually the header)."""
+    doc_string: DocString | None = None
 
 
 class TestCase(SchemaModel):

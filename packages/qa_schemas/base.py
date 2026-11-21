@@ -19,6 +19,7 @@ class SchemaModel(BaseModel):
 
 IDENTIFIER_PATTERN = r"^[a-z][a-z0-9_-]{0,63}$"
 STABLE_ID_PATTERN = r"^[a-z0-9][a-z0-9_.:-]{0,199}$"
+TAG_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}$"
 
 PATTERN_DESCRIPTIONS: dict[str, str] = {
     IDENTIFIER_PATTERN: (
@@ -28,6 +29,10 @@ PATTERN_DESCRIPTIONS: dict[str, str] = {
     STABLE_ID_PATTERN: (
         "must start with a lowercase letter or digit and contain only lowercase "
         "letters, digits, '.', ':', '-' or '_' (max 200 characters)"
+    ),
+    TAG_PATTERN: (
+        "must start with a letter or digit and contain only letters, digits, "
+        "'.', ':', '-' or '_' (max 100 characters)"
     ),
 }
 """Human-readable explanations of the patterns above, used in error messages."""

@@ -304,3 +304,25 @@ to detect which scenarios changed.
 parsing and validation; discovery problems are merged into the report as
 `discovery` errors. Paths are resolved relative to `qa.yaml`, not the current
 directory. The CLI command only formats the report and sets the exit code.
+
+## Scenario → Test Specification (TASK-023)
+
+`qa_core.scenarios.conversion.convert_feature(feature, base)` produces one
+`TestSpecification` per scenario; the mapping is documented for users in
+[`scenarios.md`](scenarios.md#from-scenario-to-test-specification). Input is
+expected to be validated; anything that still cannot be represented raises
+`ConversionError` with `path:line`.
+
+Specification `Step` gained optional `data_table` and `doc_string` (additive,
+`schema_version` stays `1`), because dropping step arguments would lose
+information the test needs. The sample specification in `examples/` is now
+produced by the converter, and a test keeps them identical.
+
+### ADR-012: Specification ids and source hash
+
+- **Ids** are derived from the file path (relative to `scenario_dir`) and the
+  scenario name, so they are readable and stable across runs and machines.
+  Renaming a scenario or moving its file changes its id; collisions within a
+  file are resolved by source order (`-2`, `-3`).
+- **`source.content_hash`** is the scenario content hash (TASK-021), not the
+  file hash, so a specification becomes outdated only when *its* scenario changes.

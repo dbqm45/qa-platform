@@ -1,6 +1,5 @@
 """Tests for the Test Specification schema (TASK-008)."""
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -8,6 +7,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from qa_core.scenarios.parsing import parse_document
+from qa_core.scenarios.sources import LocalFileSource
 from qa_schemas.enums import StepKind
 from qa_schemas.specification import SPECIFICATION_SCHEMA_VERSION, TestSpecification
 
@@ -34,10 +35,18 @@ def test_sample_specification_is_valid_and_canonical() -> None:
     assert spec.model_dump_json(indent=2) + "\n" == text
 
 
-def test_sample_traces_back_to_its_source_file() -> None:
+def test_sample_traces_back_to_its_scenario() -> None:
+    """The source hash is the scenario's content hash, so outdated specs can be detected."""
     spec = _spec()
-    content = (ROOT / spec.source.path).read_bytes()
-    assert spec.source.content_hash == "sha256:" + hashlib.sha256(content).hexdigest()
+    project = ROOT / "examples"
+    [document] = LocalFileSource(project, [Path("scenarios")]).discover().documents
+    feature = parse_document(document).feature
+    assert feature is not None
+    [scenario] = feature.scenarios
+
+    assert spec.source.path == document.path
+    assert (spec.source.feature, spec.source.scenario) == (feature.name, scenario.name)
+    assert spec.source.content_hash == scenario.content_hash
 
 
 def test_json_round_trip() -> None:

@@ -39,6 +39,7 @@ stable code.
 | `document.no-feature` | error | The file contains no `Feature`. |
 | `feature.missing-name` | error | `Feature:` has no name. |
 | `feature.no-scenarios` | warning | The feature has no scenarios. |
+| `tag.invalid` | error | A tag contains characters other than letters, digits, `.`, `:`, `-`, `_` (or is longer than 100 characters). |
 | `scenario.missing-name` | error | A scenario has no name. |
 | `scenario.duplicate-name` | error | Two scenarios in one file have the same name (also across Rules). |
 | `scenario.no-steps` | error | A scenario has no steps of its own (Background alone is not enough). |
@@ -66,3 +67,28 @@ table, doc string) and Examples. Line numbers, indentation and descriptions are
 not included, so moving a scenario or editing another scenario in the same
 file does not change its hash. The file itself has a separate hash of its raw
 bytes.
+
+## From scenario to Test Specification
+
+Each valid scenario becomes one Test Specification (see
+[`examples/specifications/login.spec.json`](../examples/specifications/login.spec.json)):
+
+| Scenario | Specification |
+|----------|---------------|
+| file path (relative to `scenario_dir`) + scenario name | `id`, e.g. `scenarios/auth/login.feature` + "Successful login" → `auth.login.successful-login` |
+| Given / When / Then | step `kind`: `precondition` / `action` / `expectation` |
+| And / But / `*` | the kind of the previous step |
+| Background | first steps of every test case (placeholders are not substituted) |
+| Scenario | one test case with the specification's id |
+| Scenario Outline | one test case per Examples row: `<id>:1`, `<id>:2`, … with `<placeholders>` replaced in the name, steps, tables and doc strings; the row is kept as `parameters` |
+| Feature, Rule and scenario tags | `metadata.tags` (in that order, duplicates removed) |
+| scenario description | `metadata.description` |
+| scenario content hash | `source.content_hash` |
+
+Id rules: words are lowercased, accents are removed (`Łódź` → `lodz`) and
+everything else becomes `-`. If two scenarios in a file produce the same id,
+the later ones get `-2`, `-3`, …; a name without usable characters becomes
+`scenario-<line>`. Repeated test case names within an outline get ` #<n>`.
+
+Known limitation: tags on an `Examples` section are not carried into the
+specification.

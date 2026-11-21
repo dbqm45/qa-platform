@@ -11,7 +11,7 @@ from pathlib import PurePosixPath
 
 from gherkin.dialect import Dialect
 
-from qa_schemas.base import SchemaModel
+from qa_schemas.base import PATTERN_DESCRIPTIONS, TAG_PATTERN, SchemaModel
 from qa_schemas.enums import IssueSeverity, StepKeywordType
 from qa_schemas.scenario import (
     Examples,
@@ -23,6 +23,7 @@ from qa_schemas.scenario import (
 )
 
 PLACEHOLDER = re.compile(r"<([^<>\n]+)>")
+_TAG = re.compile(TAG_PATTERN)
 """Scenario Outline placeholder, e.g. ``<user name>``."""
 
 _ERROR = IssueSeverity.ERROR
@@ -108,6 +109,7 @@ def _feature_issues(feature: ParsedFeature) -> Iterator[ValidationIssue]:
             path, feature.line, "feature.no-scenarios", "Feature has no scenarios", _WARNING
         )
 
+    yield from _tag_issues(feature.tags, feature.line, path)
     keywords = _bare_step_keywords(feature.language)
     names = Counter(s.name.strip() for s in feature.scenarios if s.name.strip())
     for scenario in feature.scenarios:
@@ -123,6 +125,14 @@ def _feature_issues(feature: ParsedFeature) -> Iterator[ValidationIssue]:
                 f"scenario name {name!r} is used {names[name]} times in this file",
             )
         yield from _scenario_issues(scenario, path)
+
+
+def _tag_issues(tags: Iterable[str], line: int, path: PurePosixPath) -> Iterator[ValidationIssue]:
+    for tag in tags:
+        if not _TAG.match(tag):
+            yield _issue(
+                path, line, "tag.invalid", f"tag @{tag} {PATTERN_DESCRIPTIONS[TAG_PATTERN]}"
+            )
 
 
 def _bare_step_keywords(language: str) -> set[str]:
@@ -152,6 +162,9 @@ def _keywords_in_description(
 
 
 def _scenario_issues(scenario: Scenario, path: PurePosixPath) -> Iterator[ValidationIssue]:
+    yield from _tag_issues(scenario.tags, scenario.line, path)
+    if scenario.rule:
+        yield from _tag_issues(scenario.rule.tags, scenario.rule.line, path)
     if not scenario.steps:
         yield _issue(path, scenario.line, "scenario.no-steps", "scenario has no steps")
 

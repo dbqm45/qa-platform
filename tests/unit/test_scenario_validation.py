@@ -300,3 +300,16 @@ def test_issues_are_in_source_order() -> None:
     )
     lines = [line or 0 for _, line in _codes(content)]
     assert lines == sorted(lines)
+
+
+def test_invalid_tags_are_reported_where_they_are_written() -> None:
+    content = (
+        "@ok @bad/feature\nFeature: F\n"
+        "  @bad!rule\n  Rule: R\n"
+        "    @fine @bad,scenario\n    Scenario: S\n      Given x\n"
+    )
+    issues = _issues(content)
+    assert [(i.code, i.line) for i in issues] == [
+        ("tag.invalid", 2), ("tag.invalid", 4), ("tag.invalid", 6),
+    ]  # fmt: skip
+    assert "@bad/feature must start with a letter or digit" in issues[0].message
