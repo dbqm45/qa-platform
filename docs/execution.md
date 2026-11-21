@@ -119,6 +119,41 @@ its failure, and where the report, `results.json` and log are. A unique prefix
 of the id is enough; an unknown or ambiguous id exits with `1`. An execution
 interrupted before it finished has no `results.json`; `show` says so.
 
+### Protected environments
+
+```yaml
+environments:
+  - name: prod
+    base_url: https://shop.example.com
+    protected: true
+```
+
+A protected environment is **read-only**: tests must not change its data.
+`--allow-writes` on `qa test` or `qa rerun` lifts this for one run.
+
+1. **Before execution.** A specification with built-in steps that would
+   change data is not executed at all, and the steps are named:
+
+   ```
+   NOT RUN  not executed: environment 'prod' is protected (read-only) and these steps would change data: line 3: When the client sends POST "/orders" with:; use --allow-writes to run it anyway
+   ```
+
+   Such steps are API requests with any method other than `GET`, `HEAD` and
+   `OPTIONS`, and data entry in the browser (`fills`, `selects`, `checks`,
+   `unchecks`, `submits the form`). A `POST /login` counts too: the rule is
+   about the method, not the intent.
+2. **During execution**, as a safety net for custom steps and clicks:
+   - the HTTP adapter does not send a write method (`environment_error`:
+     `POST /orders was not sent: environment 'prod' is protected ...`);
+   - the browser blocks every request of the page that is not `GET`, `HEAD`
+     or `OPTIONS`, for example a form a click submits. The test case then ends
+     as `error` / `environment_error` with the blocked requests, even if a
+     later step failed because of the block (that failure is kept as a note),
+     so the application is not blamed.
+
+This guards against accidents; it is not a security boundary. A `GET` that
+changes data in a badly designed application is not detected.
+
 ### Rerun
 
 ```bash

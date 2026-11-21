@@ -22,6 +22,7 @@ from qa_core.steps.registry import StepRegistry
 from qa_core.storage import DATABASE_FILENAME, ExecutionRepository, ProjectRepository, open_database
 from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_execution.planning import PlanningError, create_plan
+from qa_execution.protection import data_changing_steps, describe_refusal
 from qa_execution.registry import AdapterRegistry
 from qa_execution.runner import ExecutionRequest, LocalRunner, NotExecutableError
 from qa_reporting.html import write_html_report
@@ -97,6 +98,7 @@ def run_scenario(
     steps: StepRegistry | None = None,
     adapters: AdapterRegistry | None = None,
     timeout: float | None = None,
+    allow_writes: bool = False,
 ) -> TestRun:
     """Compile ``scenario`` and execute every specification that is READY.
 
@@ -119,6 +121,7 @@ def run_scenario(
         steps=steps,
         adapters=adapters,
         timeout=timeout,
+        allow_writes=allow_writes,
     )
 
 
@@ -138,6 +141,7 @@ def run_file(
     timeout: float | None = None,
     select: Select | None = None,
     rerun_of: str | None = None,
+    allow_writes: bool = False,
 ) -> TestRun:
     """Compile one scenario file (relative to the project root) and execute it.
 
@@ -192,6 +196,7 @@ def run_file(
                     output,
                     timeout,
                     rerun_of,
+                    allow_writes,
                 )
             )
     return TestRun(
@@ -217,12 +222,18 @@ def _run_one(
     output: Path,
     timeout: float | None,
     rerun_of: str | None = None,
+    allow_writes: bool = False,
 ) -> SpecificationRun:
     if not compiled.status.is_executable:
         reasons = "; ".join(compiled.reasons) or compiled.status.value
         return SpecificationRun(
             compiled, problem=f"not executed ({compiled.status.value}): {reasons}"
         )
+    if environment.protected and not allow_writes:
+        writes = data_changing_steps(compiled.specification)
+        if writes:
+            refusal = describe_refusal(environment.name, writes)
+            return SpecificationRun(compiled, problem=f"not executed: {refusal}")
     try:
         plan = create_plan(
             compiled.specification,
@@ -233,7 +244,14 @@ def _run_one(
             execution_timeout=timeout,
         )
         report = runner.run(
-            ExecutionRequest(config.project.id, compiled, plan, environment, rerun_of=rerun_of)
+            ExecutionRequest(
+                config.project.id,
+                compiled,
+                plan,
+                environment,
+                rerun_of=rerun_of,
+                allow_writes=allow_writes,
+            )
         )
     except (PlanningError, NotExecutableError) as error:
         return SpecificationRun(compiled, problem=f"not executed: {error}")

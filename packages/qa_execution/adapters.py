@@ -50,6 +50,12 @@ class ExecutionContext:
     """Where ``${NAME}`` secrets come from (normally the process environment)."""
     builtins: dict[str, str] = field(default_factory=dict)
     """``${RUN_ID}`` always; ``${UNIQUE}`` while a test case runs (set by the runner)."""
+    allow_writes: bool = False
+
+    @property
+    def read_only(self) -> bool:
+        """Adapters must not change data: the environment is protected (TASK-056)."""
+        return self.environment.protected and not self.allow_writes
 
     def config_for(self, adapter: str) -> Mapping[str, Any]:
         return self.adapter_config.get(adapter, {})

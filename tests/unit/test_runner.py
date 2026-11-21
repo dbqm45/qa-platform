@@ -965,3 +965,24 @@ def test_unique_outside_a_test_case(tmp_path: Path) -> None:
     assert context.resolve("run ${RUN_ID}") == "run e"
     with pytest.raises(MissingSecretError, match=r"\$\{UNIQUE\} is only available in test case"):
         context.resolve("${UNIQUE}")
+
+
+def test_read_only_guard_turns_a_passing_case_into_an_error(tmp_path: Path) -> None:
+    from qa_execution.protection import ProtectedEnvironmentError
+
+    class Guarded(Browser):
+        def finish_test_case(self, test_case: TestCase, passed: bool) -> None:
+            raise ProtectedEnvironmentError("blocked: POST /orders")
+
+    compiled = _compiled(*PASSING)
+    runner_ = LocalRunner(_steps(), AdapterRegistry([Guarded, Http]), evidence_root=tmp_path)
+
+    report = runner_.run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+
+    [result] = report.results
+    assert result.status is ExecutionStatus.ERROR and result.notes == ()
+    assert result.failure is not None
+    assert result.failure.classification is FailureClassification.ENVIRONMENT_ERROR
+    assert result.failure.message == "browser: blocked: POST /orders"

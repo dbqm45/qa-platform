@@ -61,6 +61,8 @@ class Environment(SchemaModel):
     Not secret: they appear in results. Secrets come from environment variables."""
     headers: dict[HeaderName, str] = Field(default_factory=dict)
     """HTTP headers sent with every API request, e.g. ``{"X-Api-Key": "${SHOP_API_KEY}"}``."""
+    protected: bool = False
+    """Read-only: tests must not change data here unless ``--allow-writes`` is given."""
 
     @model_validator(mode="after")
     def _no_plaintext_secrets(self) -> Self:

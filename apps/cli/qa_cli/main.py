@@ -163,7 +163,8 @@ def project_show(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
         typer.echo("  (none)")
     for env in project.environments:
         default = "  (default)" if env.name == project.default_environment else ""
-        typer.echo(f"  {env.name}{default}")
+        protected = "  (protected: read-only)" if env.protected else ""
+        typer.echo(f"  {env.name}{default}{protected}")
         typer.echo(f"    base_url   {env.base_url or '-'}")
         for name, url in env.services.items():
             typer.echo(f"    service    {name} = {url}")
@@ -194,6 +195,10 @@ def env_add(
     default: Annotated[
         bool, typer.Option("--default", help="Make it the default environment.")
     ] = False,
+    protected: Annotated[
+        bool,
+        typer.Option("--protected", help="Read-only: tests may not change data here (production)."),
+    ] = False,
     config: ConfigOption = Path(CONFIG_FILENAME),
 ) -> None:
     """Add an environment to qa.yaml."""
@@ -205,6 +210,7 @@ def env_add(
             services=_parse_services(service or []),
             timeout_seconds=timeout,
             make_default=default,
+            protected=protected,
         )
     suffix = " as the default environment" if default else ""
     typer.echo(f"Added environment '{name}' to {config}{suffix}")
@@ -318,6 +324,12 @@ def test_command(
         float | None,
         typer.Option(help="Limit for each execution in seconds (default 600).", min=1, max=86_400),
     ] = None,
+    allow_writes: Annotated[
+        bool,
+        typer.Option(
+            "--allow-writes", help="Allow changing data in a protected (read-only) environment."
+        ),
+    ] = False,
     json_path: Annotated[
         Path | None,
         typer.Option(
@@ -342,6 +354,7 @@ def test_command(
             steps=builtin_registry(),
             adapters=builtin_adapters(),
             timeout=timeout,
+            allow_writes=allow_writes,
         )
     _print_test_run(run)
     if json_path is not None:
@@ -360,6 +373,12 @@ def rerun_command(
         float | None,
         typer.Option(help="Limit for the execution in seconds (default 600).", min=1, max=86_400),
     ] = None,
+    allow_writes: Annotated[
+        bool,
+        typer.Option(
+            "--allow-writes", help="Allow changing data in a protected (read-only) environment."
+        ),
+    ] = False,
     json_path: Annotated[
         Path | None,
         typer.Option(
@@ -382,6 +401,7 @@ def rerun_command(
                 steps=builtin_registry(),
                 adapters=builtin_adapters(),
                 timeout=timeout,
+                allow_writes=allow_writes,
             )
         except NothingToRerunError as error:
             typer.echo(f"Nothing to rerun: {error}")

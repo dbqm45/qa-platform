@@ -30,6 +30,7 @@ from qa_core.steps.registry import StepArguments, StepParameterError, StepRegist
 from qa_execution.adapters import ExecutionContext, TestAdapter
 from qa_execution.errors import TestEnvironmentError, classify, describe
 from qa_execution.log import LOG_FILENAME, ExecutionLog
+from qa_execution.protection import ProtectedEnvironmentError
 from qa_execution.registry import AdapterRegistry, AdapterSelection, AdapterSelectionError
 from qa_execution.timeouts import (
     CLEANUP_SECONDS,
@@ -78,6 +79,8 @@ class ExecutionRequest:
     environment: Environment
     rerun_of: str | None = None
     """Id of the execution this one repeats."""
+    allow_writes: bool = False
+    """Lift the read-only guard of a protected environment."""
 
 
 @dataclass
@@ -156,6 +159,7 @@ class LocalRunner:
             redactor=Redactor(),
             secret_source=self._variables,
             builtins={"RUN_ID": execution.id},
+            allow_writes=request.allow_writes,
         )
         adapters = [adapter_class() for adapter_class in selection.adapters]
         providers = {
@@ -445,6 +449,18 @@ class _Run:
             try:
                 with self._limited(self._hook_limit, f"{adapter.name}.finish_test_case timed out"):
                     adapter.finish_test_case(case, passed)
+            except ProtectedEnvironmentError as error:
+                # The guard blocked a request; a step that failed afterwards failed
+                # because of that, so the guard is the cause, not the application.
+                if failure is not None:
+                    where = (
+                        f"step {failure.step_index + 1}"
+                        if failure.step_index is not None
+                        else "the test case"
+                    )
+                    notes.append(f"{where} then failed: {failure.message}")
+                status = S.ERROR
+                failure = _failure(error, None, adapter.name)
             except Exception as error:
                 if failure is None:
                     status = S.ERROR

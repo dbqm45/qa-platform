@@ -191,6 +191,8 @@ uv run qa project env add staging --base-url https://staging.example.com --servi
 Both commands use `qa.yaml` in the current directory (`-c PATH` for another
 file), validate the result before writing, and keep existing comments.
 
+`--protected` on `env add` makes an environment read-only (`qa test
+--allow-writes` overrides it for one run).
 `uv run qa project show` prints the whole configuration (without secret
 values); `uv run qa --version` prints the platform version.
 

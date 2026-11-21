@@ -31,6 +31,7 @@ def rerun_execution(
     steps: StepRegistry | None = None,
     adapters: AdapterRegistry | None = None,
     timeout: float | None = None,
+    allow_writes: bool = False,
 ) -> TestRun:
     """Run the execution's specification again; with ``failed_only`` only the test
     cases that did not pass.
@@ -109,6 +110,7 @@ def rerun_execution(
         timeout=timeout,
         select=select,
         rerun_of=execution.id,
+        allow_writes=allow_writes,
     )
     return replace(run, warnings=tuple(warnings))
 

@@ -75,6 +75,7 @@ fields are rejected then), not when `qa.yaml` is loaded.
 | `project.environments[].timeout_seconds` | number | `30` | `0 < value ≤ 3600`. Step timeout. |
 | `project.environments[].variables` | map `NAME` → text | `{}` | Plain values for `${NAME}`; names like `*_PASSWORD`, `*_TOKEN`, `*_SECRET`, `*_KEY` are rejected, and so are the built-in `RUN_ID` and `UNIQUE` ([steps.md](steps.md#unique-test-data)). |
 | `project.environments[].headers` | map header → text | `{}` | Default API headers; `Authorization`, `X-Api-Key`, `Cookie`, … must contain a `${NAME}` reference. |
+| `project.environments[].protected` | bool | `false` | Read-only: tests may not change data here unless `--allow-writes` is given ([execution.md](execution.md#protected-environments)). |
 
 ## Validation rules
 
@@ -118,7 +119,7 @@ available adapters with their capabilities. It shows no secret values:
 | Command | Effect |
 |---------|--------|
 | `qa project repo add NAME [--path PATH] [--url URL]` | Appends to `project.repositories`. |
-| `qa project env add NAME [--base-url URL] [--service NAME=URL ...] [--timeout S] [--default]` | Appends to `project.environments`; `--default` also sets `default_environment`. |
+| `qa project env add NAME [--base-url URL] [--service NAME=URL ...] [--timeout S] [--default] [--protected]` | Appends to `project.environments`; `--default` also sets `default_environment`, `--protected` makes it read-only. |
 
 Both accept `-c/--config PATH` (default: `qa.yaml` in the current directory).
 

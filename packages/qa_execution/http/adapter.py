@@ -24,6 +24,7 @@ from qa_execution.adapters import (
 )
 from qa_execution.errors import TestEnvironmentError
 from qa_execution.http.config import HttpConfig
+from qa_execution.protection import ALLOW_HINT, SAFE_METHODS, ProtectedEnvironmentError
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.project import SENSITIVE_HEADERS
 from qa_schemas.specification import TestCase
@@ -41,10 +42,18 @@ class HttpSession:
     """Extra headers sent with every following request of this test case."""
     last_response: httpx.Response | None = None
     exchanges: list[dict[str, Any]] = field(default_factory=list)
+    read_only: bool = False
+    """The environment is protected: write methods are refused (TASK-056)."""
+    environment: str = ""
 
     def send(
         self, method: str, url: str, *, json_body: Any = None, raw_body: str | None = None
     ) -> httpx.Response:
+        if self.read_only and method.upper() not in SAFE_METHODS:
+            raise ProtectedEnvironmentError(
+                f"{method.upper()} {url} was not sent: environment {self.environment!r} "
+                f"is protected (read-only); {ALLOW_HINT}"
+            )
         if url.startswith("/") and self.base_url is None:
             raise TestEnvironmentError(
                 f"cannot send {method} {url}: the environment has neither a "
@@ -148,6 +157,8 @@ class HttpxAdapter(TestAdapter):
             redactor=execution.redactor,
             base_url=base_url,
             headers=headers,
+            read_only=execution.read_only,
+            environment=environment.name,
         )
 
     def collect_evidence(self, test_case: TestCase) -> list[EvidenceReference]:

@@ -22,6 +22,7 @@ from playwright.sync_api import (
     ConsoleMessage,
     Page,
     Playwright,
+    Route,
     sync_playwright,
 )
 from playwright.sync_api import Error as PlaywrightError
@@ -35,6 +36,7 @@ from qa_execution.adapters import (
 )
 from qa_execution.browser.config import BrowserConfig, EvidenceMode
 from qa_execution.errors import TestEnvironmentError
+from qa_execution.protection import ALLOW_HINT, SAFE_METHODS, ProtectedEnvironmentError
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.specification import TestCase
 
@@ -52,6 +54,8 @@ class BrowserSession:
     config: BrowserConfig
     timeout_seconds: float
     console_errors: list[str] = field(default_factory=list)
+    blocked_requests: list[str] = field(default_factory=list)
+    """Requests the read-only guard of a protected environment stopped (TASK-056)."""
 
 
 class PlaywrightAdapter(TestAdapter):
@@ -109,6 +113,8 @@ class PlaywrightAdapter(TestAdapter):
         self._context = context
         page = context.new_page()
         session = BrowserSession(page=page, config=self.config, timeout_seconds=timeout)
+        if execution.read_only:
+            context.route("**/*", lambda route: _read_only(route, session))
         page.on("console", lambda message: _record_console(session, message))
         page.on("pageerror", lambda error: session.console_errors.append(f"uncaught: {error}"))
         self._session = session
@@ -116,6 +122,15 @@ class PlaywrightAdapter(TestAdapter):
 
     def finish_test_case(self, test_case: TestCase, passed: bool) -> None:
         self._passed = passed  # the context stays open until evidence is collected
+        session, execution = self._session, self._execution
+        if session is not None and execution is not None and session.blocked_requests:
+            blocked = ", ".join(session.blocked_requests[:3])
+            more = len(session.blocked_requests) - 3
+            raise ProtectedEnvironmentError(
+                f"the page tried to change data in protected environment "
+                f"{execution.environment.name!r}; blocked: {blocked}"
+                f"{f' (and {more} more)' if more > 0 else ''}; {ALLOW_HINT}"
+            )
 
     def collect_evidence(self, test_case: TestCase) -> list[EvidenceReference]:
         session, execution = self._session, self._execution
@@ -223,3 +238,13 @@ def first_line(error: BaseException) -> str:
     """First line of a Playwright error; its full text contains call logs."""
     text = str(error).strip()
     return text.splitlines()[0] if text else type(error).__name__
+
+
+def _read_only(route: Route, session: BrowserSession) -> None:
+    """Let safe requests through; stop and record everything else."""
+    request = route.request
+    if request.method.upper() in SAFE_METHODS:
+        route.continue_()
+        return
+    session.blocked_requests.append(f"{request.method} {request.url.split('?', 1)[0]}")
+    route.abort("blockedbyclient")

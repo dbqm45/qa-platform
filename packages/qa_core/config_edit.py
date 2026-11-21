@@ -54,6 +54,7 @@ def add_environment(
     services: dict[str, str] | None = None,
     timeout_seconds: float | None = None,
     make_default: bool = False,
+    protected: bool = False,
 ) -> ProjectConfig:
     """Append an environment to ``project.environments``, optionally as the default."""
     entry = _entry(
@@ -61,6 +62,7 @@ def add_environment(
         base_url=base_url,
         services=CommentedMap(services) if services else None,
         timeout_seconds=_plain_number(timeout_seconds),
+        protected=True if protected else None,
     )
     _validate_entry(Environment, entry, "environment")
     current = load_config(config_path)
