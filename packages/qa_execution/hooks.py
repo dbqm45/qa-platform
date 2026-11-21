@@ -53,8 +53,11 @@ def run_hooks(
         target = hook.split(" ", 1)[1]
         return find(context.mocks, root + target if target.startswith("/") else target) is not None
 
-    for hook in hooks:  # the guard applies before anything is sent
-        method = hook.split(" ", 1)[0]
+    hosts = context.hosts
+    for hook in hooks:  # the guards apply before anything is sent
+        method, target = hook.split(" ", 1)
+        if not hosts.allows(target):
+            raise hosts.refuse(f"{phase} {method}", target)
         if context.read_only and method not in SAFE_METHODS and not mocked(hook):
             raise ProtectedEnvironmentError(
                 f"{phase} {hook} was not sent: environment {environment.name!r} is protected "

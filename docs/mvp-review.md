@@ -154,5 +154,5 @@ Recommended next, in order:
 3. ~~TASK-060 (JSON report beyond `results.json`) and TASK-064 (rerun failed).~~ Done.
 4. ~~TASK-056 (test data isolation), then mocked dependencies (completes
    TASK-051).~~ Done.
-5. TASK-054 (contract mode), TASK-061 (fingerprinting), TASK-069 (safety
-   policies).
+5. TASK-054 (contract mode), TASK-061 (fingerprinting), ~~TASK-069 (safety
+   policies)~~ done (host allowlist).

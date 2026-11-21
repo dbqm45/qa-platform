@@ -28,6 +28,7 @@ from typing import Any, ClassVar
 
 from qa_core.redaction import Redactor, resolve_references
 from qa_execution.mocks import MockService
+from qa_execution.policy import HostPolicy
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.plan import ExecutionSettings
 from qa_schemas.project import Environment
@@ -54,6 +55,11 @@ class ExecutionContext:
     allow_writes: bool = False
     mocks: Mapping[str, MockService] = field(default_factory=dict)
     """Services answered from mock files in this execution, by service name."""
+
+    @property
+    def hosts(self) -> HostPolicy:
+        """Where requests of this execution may go (TASK-069)."""
+        return HostPolicy.of(self.environment)
 
     @property
     def read_only(self) -> bool:

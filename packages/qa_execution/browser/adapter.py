@@ -43,6 +43,7 @@ from qa_execution.mocks import (
     MockService,
     encode,
 )
+from qa_execution.policy import HostNotAllowedError, HostPolicy
 from qa_execution.protection import ALLOW_HINT, SAFE_METHODS, ProtectedEnvironmentError
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.specification import TestCase
@@ -63,6 +64,8 @@ class BrowserSession:
     console_errors: list[str] = field(default_factory=list)
     blocked_requests: list[str] = field(default_factory=list)
     """Requests the read-only guard of a protected environment stopped (TASK-056)."""
+    foreign_navigations: list[str] = field(default_factory=list)
+    """Navigations the host allowlist stopped (TASK-069)."""
     mock_misses: list[str] = field(default_factory=list)
     """Requests to a mocked service its mock file does not describe (TASK-051)."""
 
@@ -122,6 +125,10 @@ class PlaywrightAdapter(TestAdapter):
         self._context = context
         page = context.new_page()
         session = BrowserSession(page=page, config=self.config, timeout_seconds=timeout)
+        # Routes run newest first: mocks, then the read-only guard, then the host
+        # check; each passes on what it does not handle with route.fallback().
+        hosts = execution.hosts
+        context.route("**/*", lambda route: _allowed_host(route, hosts, session))
         if execution.read_only:
             context.route("**/*", lambda route: _read_only(route, session))
         # Registered last, so they run first: mocked requests never reach the guard.
@@ -140,6 +147,8 @@ class PlaywrightAdapter(TestAdapter):
             raise MockMissError(
                 session.mock_misses[0] + (f" (and {more} more)" if more > 0 else "")
             )
+        if session is not None and session.foreign_navigations:
+            raise HostNotAllowedError(session.foreign_navigations[0])
         if session is not None and execution is not None and session.blocked_requests:
             blocked = ", ".join(session.blocked_requests[:3])
             more = len(session.blocked_requests) - 3
@@ -261,7 +270,7 @@ def _read_only(route: Route, session: BrowserSession) -> None:
     """Let safe requests through; stop and record everything else."""
     request = route.request
     if request.method.upper() in SAFE_METHODS:
-        route.continue_()
+        route.fallback()
         return
     session.blocked_requests.append(f"{request.method} {request.url.split('?', 1)[0]}")
     route.abort("blockedbyclient")
@@ -291,3 +300,14 @@ def _mocked(route: Route, service: MockService, session: BrowserSession) -> None
         return
     status, headers, body = encode(service, response)
     route.fulfill(status=status, headers=headers, body=body)
+
+
+def _allowed_host(route: Route, hosts: HostPolicy, session: BrowserSession) -> None:
+    """Top-level navigation must stay in the environment; resources may come from anywhere."""
+    request = route.request
+    main_frame = request.frame == session.page.main_frame if request.frame else False
+    if request.is_navigation_request() and main_frame and not hosts.allows(request.url):
+        session.foreign_navigations.append(str(hosts.refuse("navigation to", request.url)))
+        route.abort("blockedbyclient")
+        return
+    route.continue_()

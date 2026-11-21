@@ -177,6 +177,8 @@ def project_show(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
             typer.echo(f"    setup      {hook}")
         for hook in env.cleanup:
             typer.echo(f"    cleanup    {hook}")
+        if env.allowed_hosts:
+            typer.echo(f"    hosts      also {', '.join(env.allowed_hosts)}")
         for name, file in env.mocks.items():
             typer.echo(f"    mock       {name} = {file}")
 

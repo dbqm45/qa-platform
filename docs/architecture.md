@@ -479,6 +479,12 @@ change it waits for.
   and, with `--failed-only`, the test cases that did not pass, matched by id
   *and* name. `TestExecution.rerun_of` links the new execution to the original
   (database migration 2 adds the column).
+- The host allowlist (TASK-069, `qa_execution.policy.HostPolicy`) is checked
+  statically on URL steps before execution and at run time by an `httpx`
+  request event hook (every request, redirects included), the setup/cleanup
+  requests and a Playwright route for top-level navigation. Browser routes are
+  chained with `route.fallback()`: mocks, then the read-only guard, then the
+  host check, which finally sends the request.
 - Mocked services (TASK-051) are answered in process, not by a mock server:
   `qa_execution.mocks.MockingTransport` (an `httpx` transport) for API steps
   and Playwright request routing for the page. No ports, and `https` services

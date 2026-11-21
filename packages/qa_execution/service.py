@@ -24,6 +24,7 @@ from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_execution.http.config import HttpConfig
 from qa_execution.mocks import MockService
 from qa_execution.planning import PlanningError, create_plan
+from qa_execution.policy import HostPolicy, describe_foreign_steps, foreign_url_steps
 from qa_execution.protection import data_changing_steps, describe_refusal
 from qa_execution.registry import AdapterRegistry
 from qa_execution.runner import ExecutionRequest, LocalRunner, NotExecutableError
@@ -242,6 +243,11 @@ def _run_one(
         reasons = "; ".join(compiled.reasons) or compiled.status.value
         return SpecificationRun(
             compiled, problem=f"not executed ({compiled.status.value}): {reasons}"
+        )
+    hosts = HostPolicy.of(environment)
+    if foreign := foreign_url_steps(compiled.specification, hosts):
+        return SpecificationRun(
+            compiled, problem=f"not executed: {describe_foreign_steps(hosts, foreign)}"
         )
     if environment.protected and not allow_writes:
         writes = data_changing_steps(

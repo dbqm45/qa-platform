@@ -20,6 +20,13 @@ from qa_schemas.base import (
 
 VariableName = Annotated[str, StringConstraints(pattern=VARIABLE_NAME_PATTERN)]
 HeaderName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")]
+AllowedHost = Annotated[
+    str,
+    StringConstraints(
+        pattern=r"^(\*|(\*\.)?[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*)$"
+    ),
+]
+"""A host name, ``*.example.com`` for its subdomains, or ``*`` for every host."""
 HookRequest = Annotated[
     str,
     StringConstraints(pattern=r"^(GET|HEAD|OPTIONS|POST|PUT|PATCH|DELETE) (/|https?://)\S*$"),
@@ -72,6 +79,9 @@ class Environment(SchemaModel):
     """Requests sent before every execution, e.g. to reset test data (TASK-056)."""
     cleanup: tuple[HookRequest, ...] = ()
     """Requests sent after every execution, also when it failed."""
+    allowed_hosts: tuple[AllowedHost, ...] = ()
+    """Hosts besides those of ``base_url`` and ``services`` that tests may contact
+    (TASK-069), e.g. an identity provider."""
     mocks: dict[Identifier, Path] = Field(default_factory=dict)
     """Service name -> mock file (relative to the project root) that can replace it
     with ``qa test --mock NAME`` (TASK-051)."""

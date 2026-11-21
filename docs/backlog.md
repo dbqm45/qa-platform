@@ -94,6 +94,7 @@
 | TASK-060 | Done — qa test --json: versioned RunSummary; results.json versioned too |
 | TASK-064 | Done — qa rerun [--failed-only]; cases matched by id and name; rerun_of in history (migration 2) |
 | TASK-056 | Done — ${RUN_ID}/${UNIQUE}, protected (read-only) environments with --allow-writes, environment setup/cleanup requests |
+| TASK-069 | Done — host allowlist: environment hosts + allowed_hosts for API (incl. redirects), browser navigation and hooks; size limits not needed (max_body_bytes exists) |
 | TASK-128 | In progress — CI workflow (lint, types, tests with Chromium, pip-audit) in .github/workflows/ci.yml |
 
 ---

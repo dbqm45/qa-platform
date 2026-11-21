@@ -401,6 +401,10 @@ A bug in the platform, not in your project. Run the command again with
 You pressed Ctrl-C. The execution that was running is kept in the history as
 `cancelled`; browser and HTTP clients are closed.
 
+**`not executed: these steps send requests outside environment 'shop': ...`**
+A step uses an absolute URL on a host that is not the environment's. Use a
+path (`/health`) or add the host to `allowed_hosts` in `qa.yaml`.
+
 **`Error: unknown environment 'prod'; known: local, shop`**
 Use one of the listed names with `-e`, or add the environment with
 `qa project env add`.

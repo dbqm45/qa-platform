@@ -40,7 +40,10 @@ environments:
 environment's `variables` (plain, not masked), otherwise from environment
 variables (secret, masked). So the
 same scenario can run against environments with different users or keys.
-Headers listed under `headers` are sent with every API request; a missing
+Headers listed under `headers` are sent with every API request, but only to
+the environment's own hosts ([allowed hosts](execution.md#allowed-hosts)), so
+a credential cannot reach a foreign server through an absolute URL or a
+redirect; a missing
 secret makes each test case `error` / `environment_error`. `qa.yaml` rejects
 plain values for sensitive headers and variables with secret-like names.
 

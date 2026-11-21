@@ -119,6 +119,44 @@ its failure, and where the report, `results.json` and log are. A unique prefix
 of the id is enough; an unknown or ambiguous id exits with `1`. An execution
 interrupted before it finished has no `results.json`; `show` says so.
 
+### Allowed hosts
+
+Tests talk to the environment they target and nothing else. Requests may go
+to the hosts of the environment's `base_url` and `services`, and to its
+`allowed_hosts`:
+
+```yaml
+environments:
+  - name: staging
+    base_url: https://staging.example.com
+    services:
+      api: https://api.staging.example.com
+    allowed_hosts:
+      - auth.example.com          # e.g. the identity provider a login redirects to
+      - "*.cdn.example.com"       # every subdomain (not cdn.example.com itself)
+```
+
+- A step with an absolute URL to another host is not executed:
+
+  ```
+  NOT RUN  not executed: these steps send requests outside environment 'staging': line 4: When the client sends GET "https://api.example.com/orders"; add the host to allowed_hosts in qa.yaml if it should be reachable
+  ```
+
+- During execution the same rule applies to everything else, before anything
+  is sent: API requests from any step (also each hop of a redirect when
+  `follow_redirects` is on), setup and cleanup requests, and navigation of the
+  browser page, e.g. a clicked link (`error` / `environment_error`:
+  `navigation to https://other.example.com/: host 'other.example.com' is not
+  part of environment 'staging' ...`).
+- Images, scripts, fonts and other resources a page loads may come from any
+  host; only where the page itself goes is checked.
+- This keeps a scenario written for one environment from reaching another one
+  (staging tests hitting production by a copied URL), and keeps the
+  environment's `headers`, often credentials such as `X-Api-Key`, from ever
+  being sent to a foreign host.
+- Hosts are compared by name, case-insensitively, not by port.
+  `allowed_hosts: ["*"]` switches the check off.
+
 ### Mocked services
 
 A service of an environment can be replaced by a mock file for one run:

@@ -154,11 +154,19 @@ class HttpxAdapter(TestAdapter):
         transport: httpx.BaseTransport = httpx.HTTPTransport(verify=self.config.verify_tls)
         if execution.mocks:
             transport = MockingTransport(execution.mocks, transport)
+        hosts = execution.hosts
+
+        def check_host(request: httpx.Request) -> None:  # every request, redirects too
+            url = str(request.url)
+            if not hosts.allows(url):
+                raise hosts.refuse(f"{request.method}", url)
+
         client = httpx.Client(
             base_url=base_url or "",
             timeout=execution.settings.step_timeout_seconds,
             transport=transport,
             follow_redirects=self.config.follow_redirects,
+            event_hooks={"request": [check_host]},
         )
         try:
             headers = {
