@@ -212,7 +212,8 @@ uv run qa test --scenario login.feature --environment local
 ```
 
 Compiles the file, executes its ready specifications in a browser and stores
-results and evidence in `.qa/executions/<id>/`. Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
+results, evidence, a log and an HTML report in `.qa/executions/<id>/`.
+`uv run qa execution list` and `uv run qa execution show <id>` browse the history. Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
 
 ## Secrets
 

@@ -16,6 +16,7 @@ it needs with ``context.resource("browser")``.
 import os
 import secrets
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
@@ -27,6 +28,7 @@ from qa_core.redaction import MissingSecretError, Redactor, resolve_references
 from qa_core.steps.registry import StepArguments, StepParameterError, StepRegistry
 from qa_execution.adapters import ExecutionContext, TestAdapter
 from qa_execution.errors import TestEnvironmentError, classify, describe
+from qa_execution.log import LOG_FILENAME, ExecutionLog
 from qa_execution.registry import AdapterRegistry, AdapterSelection, AdapterSelectionError
 from qa_execution.timeouts import (
     CLEANUP_SECONDS,
@@ -155,22 +157,49 @@ class LocalRunner:
             for capability, adapter_class in selection.provider_of.items()
         }
 
-        execution = self._transition(execution, S.RUNNING, started_at=self._clock())
-        run = _Run(self._steps, self._clock, context, adapters, providers, self._variables)
-        try:
-            results, failure = run.execute(spec, plan.settings.fail_fast)
-        except KeyboardInterrupt:
-            run.cleanup()
-            self._finish(execution, S.CANCELLED)
-            raise
-        cleanup_errors = run.cleanup()
-
-        report = ExecutionReport(
-            execution=self._finish(execution, _overall(results, failure)),
-            results=tuple(results),
-            failure=failure,
-            cleanup_errors=tuple(cleanup_errors),
+        log = ExecutionLog(evidence_dir / LOG_FILENAME, context.redactor, self._clock)
+        log.event(
+            "execution-started",
+            execution_id=execution.id,
+            project_id=execution.project_id,
+            specification_id=spec.id,
+            scenario=f"{spec.source.path}:{spec.source.line}",
+            plan_id=plan.id,
+            mode=plan.mode.value,
+            category=plan.category.value,
+            environment=execution.environment,
+            adapters=[adapter.name for adapter in adapters],
+            step_timeout_seconds=plan.settings.step_timeout_seconds,
+            timeout_seconds=plan.settings.timeout_seconds,
         )
+        execution = self._transition(execution, S.RUNNING, started_at=self._clock())
+        run = _Run(self._steps, self._clock, context, adapters, providers, self._variables, log)
+        try:
+            try:
+                results, failure = run.execute(spec, plan.settings.fail_fast)
+            except KeyboardInterrupt:
+                log.event("execution-interrupted")
+                _log_cleanup(log, run.cleanup())
+                log.event("execution-finished", status=S.CANCELLED.value)
+                self._finish(execution, S.CANCELLED)
+                raise
+            cleanup_errors = run.cleanup()
+            _log_cleanup(log, cleanup_errors)
+
+            report = ExecutionReport(
+                execution=self._finish(execution, _overall(results, failure)),
+                results=tuple(results),
+                failure=failure,
+                cleanup_errors=tuple(cleanup_errors),
+            )
+            log.event(
+                "execution-finished",
+                status=report.execution.status.value,
+                failure=failure.message if failure else None,
+                counts=dict(Counter(r.status.value for r in results)),
+            )
+        finally:
+            log.close()
         # Secrets become known while steps run, so free text is masked at the end.
         return redact_report(report, context.redactor)
 
@@ -218,6 +247,10 @@ class LocalRunner:
         return self._transition(execution, status, finished_at=self._clock())
 
 
+def _log_cleanup(log: ExecutionLog, errors: list[str]) -> None:
+    log.event("cleanup-finished", errors=errors)
+
+
 def _overall(results: list[TestResult], failure: Failure | None) -> S:
     """ERROR > FAILED > CANCELLED > PASSED: a non-passing result is never hidden."""
     statuses = {r.status for r in results}
@@ -240,7 +273,9 @@ class _Run:
         adapters: list[TestAdapter],
         providers: dict[str, TestAdapter],
         variables: Mapping[str, str],
+        log: ExecutionLog,
     ) -> None:
+        self.log = log
         self.variables = variables
         self.steps = steps
         self.clock = clock
@@ -271,12 +306,14 @@ class _Run:
             if self.budget.exhausted:
                 message = f"execution timeout of {self.budget.seconds:g}s exceeded"
                 results.extend(_cancelled(c, f"not run: {message}") for c in cases[index:])
+                self._log_cancelled(cases[index:], message)
                 return results, Failure(classification=C.ENVIRONMENT_ERROR, message=message)
             result = self._run_case(case)
             results.append(result)
             if fail_fast and result.status is not S.PASSED:
                 reason = f"not run: fail_fast after {case.id} did not pass"
                 results.extend(_cancelled(c, reason) for c in cases[index + 1 :])
+                self._log_cancelled(cases[index + 1 :], reason)
                 break
         if self.budget.exhausted and results and results[-1].status is not S.PASSED:
             message = f"execution timeout of {self.budget.seconds:g}s exceeded"
@@ -302,6 +339,10 @@ class _Run:
 
     # --- Steps ---------------------------------------------------------------
 
+    def _log_cancelled(self, cases: tuple[TestCase, ...], reason: str) -> None:
+        for case in cases:
+            self.log.event("test-case-cancelled", test_case_id=case.id, reason=reason)
+
     @property
     def _hook_limit(self) -> float:
         return max(HOOK_SECONDS, self.step_timeout) + GRACE_SECONDS
@@ -315,6 +356,7 @@ class _Run:
                 problems = [f"validation failed: {describe(error)}"]
             spec_problems.extend(f"{adapter.name}: {p}" for p in problems)
         if spec_problems:
+            self.log.event("adapters-rejected-specification", problems=spec_problems)
             return Failure(classification=C.ENVIRONMENT_ERROR, message="; ".join(spec_problems))
 
         for adapter in self.adapters:
@@ -327,15 +369,32 @@ class _Run:
                 status, classification = classify(error)
                 if status is S.ERROR and classification is C.TEST_IMPLEMENTATION_ERROR:
                     classification = C.ENVIRONMENT_ERROR
+                self.log.event("adapter-failed", adapter=adapter.name, error=describe(error))
                 return Failure(
                     classification=classification,
                     message=f"{adapter.name} could not be prepared: {describe(error)}",
                     error_type=type(error).__name__,
                 )
             self.prepared.append(adapter)
+            self.log.event("adapter-prepared", adapter=adapter.name)
         return None
 
     def _run_case(self, case: TestCase) -> TestResult:
+        self.log.event("test-case-started", test_case_id=case.id, name=case.name)
+        result = self._execute_case(case)
+        self.log.event(
+            "test-case-finished",
+            test_case_id=case.id,
+            status=result.status.value,
+            duration_ms=result.duration_ms,
+            classification=result.failure.classification.value if result.failure else None,
+            error=result.failure.message if result.failure else None,
+            evidence=[str(ref.path) for ref in result.evidence],
+            notes=list(result.notes),
+        )
+        return result
+
+    def _execute_case(self, case: TestCase) -> TestResult:
         started, clock = self.clock(), time.perf_counter()
         steps: list[StepResult] = []
         failure: Failure | None = None
@@ -423,6 +482,17 @@ class _Run:
             action=step.action,
             status=status,
             duration_ms=_elapsed_ms(clock),
+        )
+        self.log.event(
+            "step-finished",
+            test_case_id=case.id,
+            index=index,
+            line=step.line,
+            action=step.action,
+            text=f"{step.keyword} {step.text}",
+            status=status.value,
+            duration_ms=result.duration_ms,
+            error=failure.message if failure else None,
         )
         return result, failure
 

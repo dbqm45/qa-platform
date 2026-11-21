@@ -1,5 +1,6 @@
 """Local Runner, execution lifecycle and error classification (TASK-034..036, TASK-038)."""
 
+import json
 import re
 import time
 from datetime import UTC, datetime, timedelta
@@ -825,3 +826,71 @@ def test_hanging_evidence_collection_only_adds_a_note(
     [result] = report.results
     assert result.status is S.PASSED
     assert result.notes == ("browser: evidence collection failed: evidence collection timed out",)
+
+
+# --- Execution log (TASK-037) ------------------------------------------------
+
+
+def _log_events(tmp_path: Path, report: ExecutionReport) -> list[dict[str, Any]]:
+    path = tmp_path / "evidence" / report.execution.id / "execution.log"
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def test_execution_log_records_the_whole_execution(tmp_path: Path) -> None:
+    report = _run(tmp_path, _compiled('When the user does "pass"', 'Then outcome "fail"'))
+
+    events = _log_events(tmp_path, report)
+    assert [e["event"] for e in events] == [
+        "execution-started", "adapter-prepared", "test-case-started",
+        "step-finished", "step-finished", "test-case-finished",
+        "cleanup-finished", "execution-finished",
+    ]  # fmt: skip
+    started = events[0]
+    assert started["execution_id"] == report.execution.id
+    assert started["specification_id"] == "f.s"
+    assert started["scenario"] == "scenarios/f.feature:2"
+    assert (started["mode"], started["environment"], started["adapters"]) == (
+        "fe",
+        "local",
+        ["browser"],
+    )
+    failed_step = events[4]
+    assert (failed_step["action"], failed_step["status"]) == ("t.check", "failed")
+    assert failed_step["error"] == "expected 'Welcome', got 'Error'"
+    finished_case = events[5]
+    assert (finished_case["status"], finished_case["classification"]) == (
+        "failed",
+        "application_bug",
+    )
+    assert events[-1]["status"] == "failed"
+    assert events[-1]["counts"] == {"failed": 1}
+    assert all("time" in e for e in events)
+
+
+def test_execution_log_masks_secrets(tmp_path: Path) -> None:
+    compiled = _secret_compiled('When the user types "${TOKEN}"', 'Then outcome "pass"')
+    report = _secret_runner(tmp_path, {"TOKEN": "leak-me-please"}).run(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+    text = (tmp_path / report.execution.id / "execution.log").read_text()
+    assert "leak-me-please" not in text
+    assert "********" in text
+
+
+def test_log_records_cancelled_cases(tmp_path: Path) -> None:
+    compiled = _compiled(
+        'When the user does "pass"', 'Then outcome "<what>"', outline_rows=["fail", "pass"]
+    )
+    report = _run(tmp_path, compiled, fail_fast=True)
+    cancelled = [e for e in _log_events(tmp_path, report) if e["event"] == "test-case-cancelled"]
+    assert [e["test_case_id"] for e in cancelled] == ["f.s:2"]
+
+
+def test_interrupted_execution_is_logged(tmp_path: Path) -> None:
+    runner = _runner(tmp_path)
+    compiled = _compiled('When the user does "interrupt"', 'Then outcome "pass"')
+    with pytest.raises(KeyboardInterrupt):
+        runner.run(ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local")))
+    [log] = list((tmp_path / "evidence").glob("*/execution.log"))
+    events = [json.loads(line)["event"] for line in log.read_text().splitlines()]
+    assert events[-3:] == ["execution-interrupted", "cleanup-finished", "execution-finished"]

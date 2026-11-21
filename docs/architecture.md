@@ -522,3 +522,11 @@ the normal error handling and cleanup run. The price: no hard limits on
 Windows or outside the main thread; adapter timeouts still apply there. Hard
 limits sit 2 s above the step timeout so adapter timeouts, which have better
 messages, normally fire first.
+
+## Execution log and history (TASK-037, TASK-063)
+
+`qa_execution.log.ExecutionLog` appends redacted JSON lines to
+`execution.log` while the runner works; it never raises, so logging cannot
+change an outcome. `qa_execution.history` lists executions from SQLite and
+assembles details from the files in the execution directory; the CLI
+commands `qa execution list|show` only format them.

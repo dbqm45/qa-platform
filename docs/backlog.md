@@ -77,11 +77,13 @@
 | TASK-049 | Done |
 | TASK-067 | Done — hard limits need POSIX + main thread (ADR-019) |
 | TASK-068 | Done |
+| TASK-037 | Done |
+| TASK-063 | Done |
 | TASK-053 | Done — FULL mode with correlated results and evidence; mocked dependencies are part of TASK-051 |
 | TASK-052 | Done — BE mode runs API scenarios without a browser |
 | TASK-051 | In progress — FE mode runs browser scenarios; mocked API dependencies not implemented |
 | TASK-050 | In progress — minimal: mode inference/validation, adapter selection; dependencies and FE/BE/FULL specifics in TASK-051..053 |
-| TASK-058 | In progress — metadata in SQLite and results.json per execution; retrieval command in TASK-063 |
+| TASK-058 | Done — metadata in SQLite, results.json per execution, retrieval via qa execution |
 
 ---
 

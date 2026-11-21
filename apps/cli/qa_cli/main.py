@@ -20,6 +20,7 @@ from qa_core.scenarios.service import (
 )
 from qa_core.storage import StorageError
 from qa_execution.builtin import builtin_adapters, builtin_registry
+from qa_execution.history import ExecutionNotFoundError, list_executions, show_execution
 from qa_execution.service import TestRun, TestRunError, run_scenario
 from qa_schemas.enums import (
     CompilationStatus,
@@ -28,6 +29,7 @@ from qa_schemas.enums import (
     IssueSeverity,
     TestCategory,
 )
+from qa_schemas.results import TestResult
 
 app = typer.Typer(
     name="qa",
@@ -45,6 +47,8 @@ env_app = typer.Typer(help="Manage target environments.", no_args_is_help=True)
 scenario_app = typer.Typer(help="Validate and compile scenarios.", no_args_is_help=True)
 app.add_typer(project_app, name="project")
 app.add_typer(scenario_app, name="scenario")
+execution_app = typer.Typer(help="Inspect past executions.", no_args_is_help=True)
+app.add_typer(execution_app, name="execution")
 project_app.add_typer(repo_app, name="repo")
 project_app.add_typer(env_app, name="env")
 
@@ -297,14 +301,7 @@ def _print_test_run(run: TestRun) -> None:
         report = spec_run.report
         counts[report.execution.status.value] += 1
         for result in report.results:
-            seconds = result.duration_ms / 1000
-            typer.echo(f"  {result.status.value.upper():<9} {result.name}  ({seconds:.1f}s)")
-            if result.failure is not None:
-                typer.echo(
-                    f"            {result.failure.classification.value}: {result.failure.message}"
-                )
-            for note in result.notes:
-                typer.echo(f"            note: {note}")
+            _print_result(result)
             evidence_dir = spec_run.results_path.parent if spec_run.results_path else None
             if result.status is not ExecutionStatus.PASSED and evidence_dir is not None:
                 for ref in result.evidence:
@@ -330,6 +327,83 @@ def _print_test_run(run: TestRun) -> None:
     )
 
 
+@execution_app.command("list")
+def execution_list(
+    limit: Annotated[int, typer.Option(help="How many executions to show.", min=1)] = 20,
+    config: ConfigOption = Path(CONFIG_FILENAME),
+) -> None:
+    """List the most recent executions."""
+    with _cli_errors():
+        executions = list_executions(config, limit)
+    if not executions:
+        typer.echo("No executions yet; run `qa test`.")
+        return
+    for execution in executions:
+        started = execution.started_at or execution.created_at
+        duration = (
+            f"{(execution.finished_at - execution.started_at).total_seconds():.1f}s"
+            if execution.started_at and execution.finished_at
+            else "-"
+        )
+        typer.echo(
+            f"{execution.id}  {execution.status.value.upper():<9} "
+            f"{started.astimezone():%Y-%m-%d %H:%M}  {duration:>7}  "
+            f"{execution.environment:<10} {execution.specification_id}"
+        )
+
+
+@execution_app.command("show")
+def execution_show(
+    execution_id: Annotated[str, typer.Argument(help="Execution id, or a unique prefix of it.")],
+    config: ConfigOption = Path(CONFIG_FILENAME),
+) -> None:
+    """Show the status, results and report location of one execution."""
+    with _cli_errors():
+        details = show_execution(config, execution_id)
+    execution = details.execution
+    typer.echo(f"Execution     {execution.id}")
+    typer.echo(f"Status        {execution.status.value.upper()}")
+    typer.echo(f"Specification {execution.specification_id}")
+    typer.echo(
+        f"Plan          {execution.plan_id} ({execution.mode.value}, {execution.category.value})"
+    )
+    typer.echo(f"Environment   {execution.environment}")
+    if execution.started_at:
+        typer.echo(f"Started       {execution.started_at.astimezone():%Y-%m-%d %H:%M:%S %Z}")
+    if execution.started_at and execution.finished_at:
+        seconds = (execution.finished_at - execution.started_at).total_seconds()
+        typer.echo(f"Duration      {seconds:.1f}s")
+
+    report = details.report
+    if report is None:
+        typer.echo("\nNo results recorded (the execution may have been interrupted).")
+    else:
+        typer.echo("")
+        for result in report.results:
+            _print_result(result)
+        if report.failure is not None:
+            typer.echo(f"  {report.failure.classification.value}: {report.failure.message}")
+        for error in report.cleanup_errors:
+            typer.echo(f"  cleanup: {error}")
+
+    typer.echo("")
+    for label, path in (
+        ("Report", details.report_path),
+        ("Results", details.results_path),
+        ("Log", details.log_path),
+    ):
+        typer.echo(f"{label + ':':<9}{_display_path(path) if path else 'not available'}")
+
+
+def _print_result(result: TestResult) -> None:
+    seconds = result.duration_ms / 1000
+    typer.echo(f"  {result.status.value.upper():<9} {result.name}  ({seconds:.1f}s)")
+    if result.failure is not None:
+        typer.echo(f"            {result.failure.classification.value}: {result.failure.message}")
+    for note in result.notes:
+        typer.echo(f"            note: {note}")
+
+
 def _display_path(path: Path) -> str:
     try:
         return str(path.relative_to(Path.cwd()))
@@ -346,6 +420,13 @@ def _cli_errors() -> Iterator[None]:
     """Turn expected domain errors into a message and exit code 1."""
     try:
         yield
-    except (ConfigError, ConfigEditError, InitError, StorageError, TestRunError) as error:
+    except (
+        ConfigError,
+        ConfigEditError,
+        InitError,
+        StorageError,
+        TestRunError,
+        ExecutionNotFoundError,
+    ) as error:
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(EXIT_ERROR) from None

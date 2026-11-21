@@ -38,6 +38,41 @@ Ran 2 specifications from scenarios/login.feature on local: 1 failed, 1 passed
 `timeout_seconds` is the step timeout, so a failing assertion waits that long
 before it fails.
 
+### History
+
+```bash
+qa execution list [--limit 20]
+```
+
+```
+20261121-094743-ca8af5  PASSED    2026-11-21 10:47     0.8s  local      orders.an-order-placed-...
+20261121-094520-1b2c3d  FAILED    2026-11-21 10:45     3.4s  local      login.invalid-login
+```
+
+```bash
+qa execution show 20261121-0945
+```
+
+shows status, plan, mode, environment, start, duration, every test case with
+its failure, and where the report, `results.json` and log are. A unique prefix
+of the id is enough; an unknown or ambiguous id exits with `1`. An execution
+interrupted before it finished has no `results.json`; `show` says so.
+
+### Log
+
+Every execution writes `.qa/executions/<id>/execution.log`: one JSON object
+per line, written as it happens (`tail -f` works during a run):
+
+| Event | Fields |
+|-------|--------|
+| `execution-started` | execution, project, specification, scenario location, plan, mode, category, environment, adapters, timeouts |
+| `adapter-prepared` / `adapter-failed` / `adapters-rejected-specification` | adapter, error / problems |
+| `test-case-started` / `test-case-finished` / `test-case-cancelled` | test case, status, duration, classification, error, evidence, notes / reason |
+| `step-finished` | test case, index, line, action, text, status, duration, error |
+| `execution-interrupted`, `cleanup-finished`, `execution-finished` | errors / final status, failure, counts per status |
+
+Every line passes through the secret redactor when it is written.
+
 ### Report
 
 Every execution also gets `.qa/executions/<execution id>/report.html`: a single
