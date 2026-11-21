@@ -466,3 +466,11 @@ change it waits for.
   write `results.json` atomically. The CLI only formats `TestRun`.
 - Execution metadata goes to SQLite (queryable history); the full report is a
   JSON file next to its evidence (easy to inspect, archive or hand to CI).
+
+## HTML report (TASK-059)
+
+`qa_reporting.html.render_html(report, specification=None)` turns an
+`ExecutionReport` into a self-contained HTML page; `write_html_report()` stores
+it as `report.html` next to the evidence. `qa_reporting` depends only on
+`qa_schemas` (see the dependency table), so reports never require re-running
+tests. All values are HTML-escaped.

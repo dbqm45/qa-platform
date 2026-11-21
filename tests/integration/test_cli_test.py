@@ -116,6 +116,22 @@ def test_failing_scenario(project: Path) -> None:
     assert (project / screenshot).read_bytes().startswith(b"\x89PNG")
 
 
+def test_html_report_is_written_next_to_the_evidence(project: Path) -> None:
+    _write(project, LOGIN + "\n" + WRONG)
+    _, output = _test("-s", "login.feature")
+
+    reports = [line.split("report: ", 1)[1] for line in output.splitlines() if "report: " in line]
+    assert len(reports) == 2
+    failed = (project / reports[1]).read_text()
+    assert "Wrong password shows the dashboard" in failed
+    assert "<img class=shot src='login.wrong-password-shows-the-dashboard/screenshot.png'" in failed
+    assert (
+        (project / reports[1])
+        .parent.joinpath("login.wrong-password-shows-the-dashboard", "screenshot.png")
+        .is_file()
+    )
+
+
 def test_unreachable_environment_is_an_error(project: Path) -> None:
     _write(project, LOGIN)
     code, output = _test("-s", "login.feature", "-e", "down")

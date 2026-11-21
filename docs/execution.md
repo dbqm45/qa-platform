@@ -38,6 +38,20 @@ Ran 2 specifications from scenarios/login.feature on local: 1 failed, 1 passed
 `timeout_seconds` is the step timeout, so a failing assertion waits that long
 before it fails.
 
+### Report
+
+Every execution also gets `.qa/executions/<execution id>/report.html`: a single
+self-contained file (no scripts or external resources, light and dark theme)
+with the summary, every test case with its steps, durations and statuses,
+failure classification and message, a screenshot thumbnail and links to all
+evidence. Links are relative, so the execution folder can be archived or shared
+as a whole. The report is built only from `results.json` and can be regenerated
+with `qa_reporting.html.write_html_report()`.
+
+> **Known limitation until TASK-066:** step texts are shown as written, so a
+> step like `the user fills "Password" with "..."` puts that value into
+> `results.json` and `report.html`. Use test credentials only.
+
 ### Execution Plans and modes
 
 The plan is generated (TASK-050, minimal). Without `--mode` the mode follows

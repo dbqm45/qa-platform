@@ -3,6 +3,7 @@
 Results of every execution are stored in ``.qa/executions/<id>/``:
 
 - ``results.json`` -- the complete ``ExecutionReport`` (TASK-058);
+- ``report.html`` -- human-readable report (TASK-059);
 - ``<test case>/`` -- evidence written by the adapters;
 - execution metadata (status, timestamps) is also kept in ``.qa/qa.db``.
 """
@@ -22,6 +23,7 @@ from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_execution.planning import PlanningError, create_plan
 from qa_execution.registry import AdapterRegistry
 from qa_execution.runner import ExecutionRequest, LocalRunner, NotExecutableError
+from qa_reporting.html import write_html_report
 from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.config import ProjectConfig
 from qa_schemas.enums import ExecutionMode, ExecutionStatus, IssueSeverity, TestCategory
@@ -47,6 +49,8 @@ class SpecificationRun:
     problem: str | None = None
     """Why it was not executed."""
     results_path: Path | None = None
+    report_path: Path | None = None
+    """``report.html`` next to ``results.json`` and the evidence."""
 
 
 @dataclass(frozen=True)
@@ -165,7 +169,10 @@ def _run_one(
     results_path = output / report.execution.id / RESULTS_FILENAME
     results_path.parent.mkdir(parents=True, exist_ok=True)
     write_text_atomically(results_path, report.model_dump_json(indent=2) + "\n")
-    return SpecificationRun(compiled, report=report, results_path=results_path)
+    report_path = write_html_report(report, results_path.parent, compiled.specification)
+    return SpecificationRun(
+        compiled, report=report, results_path=results_path, report_path=report_path
+    )
 
 
 def _environment(config: ProjectConfig, name: str | None) -> Environment:

@@ -66,6 +66,7 @@
 | TASK-033 | In progress — browser steps covered by integration tests; API steps follow with Phase 8 |
 | TASK-070 | Done |
 | TASK-062 | Done |
+| TASK-059 | Done |
 | TASK-050 | In progress — minimal: mode inference/validation, adapter selection; dependencies and FE/BE/FULL specifics in TASK-051..053 |
 | TASK-058 | In progress — metadata in SQLite and results.json per execution; retrieval command in TASK-063 |
 

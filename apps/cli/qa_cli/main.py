@@ -315,6 +315,8 @@ def _print_test_run(run: TestRun) -> None:
             f"  execution {report.execution.id}: {report.execution.status.value.upper()}  "
             f"-> {_display_path(spec_run.results_path) if spec_run.results_path else '-'}"
         )
+        if spec_run.report_path is not None:
+            typer.echo(f"  report: {_display_path(spec_run.report_path)}")
 
     summary = ", ".join(f"{count} {status}" for status, count in sorted(counts.items()))
     typer.echo(
