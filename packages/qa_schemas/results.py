@@ -4,7 +4,7 @@ The same structure is produced for every adapter, so reporting does not need
 to know which adapters ran a test.
 """
 
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import AwareDatetime, NonNegativeInt, PositiveInt, model_validator
 
@@ -12,6 +12,9 @@ from qa_schemas.base import SchemaModel, StableId
 from qa_schemas.enums import ExecutionStatus, FailureClassification
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.execution import TestExecution
+
+RESULTS_SCHEMA_VERSION: Literal[1] = 1
+"""Version of ``results.json`` (``ExecutionReport``)."""
 
 _OUTCOMES = {ExecutionStatus.PASSED, ExecutionStatus.FAILED, ExecutionStatus.ERROR}
 
@@ -75,8 +78,10 @@ class TestResult(SchemaModel):
 
 
 class ExecutionReport(SchemaModel):
-    """Everything an execution produced."""
+    """Everything an execution produced; stored as ``results.json``."""
 
+    schema_version: Literal[1] = RESULTS_SCHEMA_VERSION
+    """Absent in files written before it existed; they read as version 1."""
     execution: TestExecution
     results: tuple[TestResult, ...] = ()
     failure: Failure | None = None

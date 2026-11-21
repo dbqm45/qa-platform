@@ -57,6 +57,7 @@ class SpecificationRun:
 class TestRun:
     __test__ = False
 
+    project: str
     scenario: PurePosixPath
     environment: str
     issues: tuple[ValidationIssue, ...] = ()
@@ -121,7 +122,12 @@ def run_scenario(
     [document] = report.documents
     path = PurePosixPath(relative.as_posix())
     if document.blocked:
-        return TestRun(scenario=path, environment=target.name, issues=document.issues)
+        return TestRun(
+            project=config.project.id,
+            scenario=path,
+            environment=target.name,
+            issues=document.issues,
+        )
 
     output = executions_dir(config_path)
     runs: list[SpecificationRun] = []
@@ -140,7 +146,13 @@ def run_scenario(
                     runner, config, compiled, target, adapters, mode, category, output, timeout
                 )
             )
-    return TestRun(scenario=path, environment=target.name, issues=document.issues, runs=tuple(runs))
+    return TestRun(
+        project=config.project.id,
+        scenario=path,
+        environment=target.name,
+        issues=document.issues,
+        runs=tuple(runs),
+    )
 
 
 # --- Internals ---------------------------------------------------------------

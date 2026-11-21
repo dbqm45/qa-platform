@@ -101,7 +101,8 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | `qa_schemas.execution` | `TestExecution` |
 | `qa_schemas.compilation` | `CompiledSpecification`, `UnresolvedStep` (format of `.qa/specifications/*.json`) |
 | `qa_schemas.evidence` | `EvidenceReference` |
-| `qa_schemas.results` | `TestResult`, `StepResult`, `Failure`, `ExecutionReport` |
+| `qa_schemas.results` | `TestResult`, `StepResult`, `Failure`, `ExecutionReport` (`results.json`, versioned) |
+| `qa_schemas.summary` | `RunSummary` and its parts: the `qa test --json` summary for CI |
 | `qa_schemas.scenario` | `ScenarioDocument` (raw input); `ParseResult`, `ParsedFeature`, `Scenario`, `ScenarioStep`, `Examples`, `ParseIssue` |
 
 `Project` validates cross-references: repository and environment names are
@@ -143,7 +144,10 @@ during plan generation (TASK-050), not by the schema.
 ### ADR-006: Integer schema versions
 
 Both documents carry `schema_version` (currently `1`) as their first field.
-Any other value is rejected. The version is bumped on incompatible changes;
+Any other value is rejected. The same applies to the files other tools read:
+`results.json` (`ExecutionReport`) and the `qa test --json` summary
+(`RunSummary`). `results.json` written before its version existed defaults to
+`1`. The version is bumped on incompatible changes;
 migrations are added when a second version exists.
 
 ## Configuration loading (TASK-012)

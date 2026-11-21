@@ -13,6 +13,7 @@ from typer.exceptions import TyperException
 from qa_core import __version__
 from qa_core.config import CONFIG_FILENAME, ConfigError, load_config
 from qa_core.config_edit import ConfigEditError, add_environment, add_repository
+from qa_core.files import write_text_atomically
 from qa_core.init import InitError, initialize_project
 from qa_core.scenarios.compilation import source_step_key
 from qa_core.scenarios.service import (
@@ -26,6 +27,7 @@ from qa_core.storage import StorageError
 from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_execution.history import ExecutionNotFoundError, list_executions, show_execution
 from qa_execution.service import TestRun, TestRunError, run_scenario
+from qa_execution.summary import summarize
 from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.enums import (
     CompilationStatus,
@@ -315,6 +317,14 @@ def test_command(
         float | None,
         typer.Option(help="Limit for each execution in seconds (default 600).", min=1, max=86_400),
     ] = None,
+    json_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--json",
+            help="Also write a JSON summary of the run (for CI) to this file.",
+            dir_okay=False,
+        ),
+    ] = None,
     config: ConfigOption = Path(CONFIG_FILENAME),
 ) -> None:
     """Compile a scenario file and execute its ready specifications.
@@ -333,8 +343,21 @@ def test_command(
             timeout=timeout,
         )
     _print_test_run(run)
+    if json_path is not None:
+        _write_summary(run, config, json_path)
     if not run.ok:
         raise typer.Exit(EXIT_ERROR)
+
+
+def _write_summary(run: TestRun, config: Path, path: Path) -> None:
+    summary = summarize(run, config.resolve().parent)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_text_atomically(path, summary.model_dump_json(indent=2) + "\n")
+    except OSError as error:
+        typer.echo(f"Error: cannot write {path}: {error.strerror or error}", err=True)
+        raise typer.Exit(EXIT_ERROR) from None
+    typer.echo(f"summary: {_display_path(path.resolve())}")
 
 
 def _print_unresolved(compiled: CompiledSpecification, indent: str) -> None:

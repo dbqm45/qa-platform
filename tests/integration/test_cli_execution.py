@@ -94,3 +94,19 @@ def test_log_file_never_contains_the_password(project: Path) -> None:
     log = (project / ".qa" / "executions" / passed / "execution.log").read_text()
     assert "correct-password" not in log
     assert '"event": "step-finished"' in log
+
+
+def test_results_written_before_schema_version_still_load(project: Path) -> None:
+    """results.json from before TASK-060 has no schema_version; it reads as version 1."""
+    import json
+
+    _, failed = _two_executions(project)
+    path = project / ".qa" / "executions" / failed / "results.json"
+    data = json.loads(path.read_text())
+    assert data.pop("schema_version") == 1
+    path.write_text(json.dumps(data))
+
+    code, output = _qa("execution", "show", failed)
+
+    assert code == 0
+    assert "application_bug: the page does not show 'Welcome'" in output

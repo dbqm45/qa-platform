@@ -38,6 +38,67 @@ Ran 2 specifications from scenarios/login.feature on local: 1 failed, 1 passed
 `timeout_seconds` is the step timeout, so a failing assertion waits that long
 before it fails.
 
+### JSON summary for CI
+
+```bash
+qa test --scenario api.feature --json build/qa-summary.json
+```
+
+writes one versioned summary of the whole run (`qa_schemas.summary.RunSummary`),
+in addition to the console output and the per-execution files. Paths in it are
+relative to the project root, so a pipeline can upload them as artifacts.
+Missing parent directories are created. The file is written for every run,
+including one whose scenario file has validation errors; it is not written
+when the request itself is invalid (unknown environment, missing file), which
+exits with `1` and a message as usual.
+
+```json
+{
+  "schema_version": 1,
+  "project": "shop",
+  "scenario": "scenarios/api.feature",
+  "environment": "local",
+  "ok": false,
+  "counts": {"failed": 1, "passed": 3},
+  "errors": [],
+  "specifications": [
+    {
+      "id": "api.placing-an-order",
+      "source": "scenarios/api.feature:17",
+      "compilation": "ready",
+      "status": "failed",
+      "problem": null,
+      "execution_id": "20261121-125129-3ae7d2",
+      "duration_ms": 66,
+      "results": ".qa/executions/20261121-125129-3ae7d2/results.json",
+      "report": ".qa/executions/20261121-125129-3ae7d2/report.html",
+      "failures": [
+        {
+          "test_case_id": "api.placing-an-order",
+          "status": "failed",
+          "classification": "application_bug",
+          "message": "response field 'total' is 6.0, expected 7.0",
+          "step": 8
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `ok` | `true` only if the file was valid and every specification ran and passed (same as exit code `0`) |
+| `counts` | specifications per execution status, plus `not_executed` |
+| `errors` | validation errors (`location`, `code`, `message`) that blocked the whole file |
+| `specifications[].status` | execution status, or `null` with `problem` when it was not executed |
+| `failures[].test_case_id` | `null` for a failure of the whole execution not already reported by its cases |
+| `failures[].step` | 1-based step number, `null` when the failure is outside a step |
+
+Messages are taken from the redacted results, so secrets are masked here as
+everywhere else. `results.json` itself carries `schema_version: 1` too; files
+written before it existed are read as version 1.
+
 ### History
 
 ```bash

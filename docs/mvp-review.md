@@ -148,7 +148,7 @@ Recommended next, in order:
    tests with a browser).~~ Done: `.github/workflows/ci.yml` (part of
    post-MVP TASK-128/129).
 2. ~~TASK-065 (CLI error messages, `--version`) and TASK-015 (`qa project show`).~~ Done.
-3. TASK-060 (JSON report beyond `results.json`) and TASK-064 (rerun failed).
+3. ~~TASK-060 (JSON report beyond `results.json`)~~ done; TASK-064 (rerun failed).
 4. TASK-056 (test data isolation), then mocked dependencies (completes
    TASK-051).
 5. TASK-054 (contract mode), TASK-061 (fingerprinting), TASK-069 (safety
