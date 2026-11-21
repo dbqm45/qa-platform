@@ -30,6 +30,7 @@ from qa_execution.history import ExecutionNotFoundError, list_executions, show_e
 from qa_execution.rerun import NothingToRerunError, rerun_execution
 from qa_execution.service import TestRun, TestRunError, run_scenario
 from qa_execution.summary import summarize
+from qa_reporting.summary import all_ok, render_markdown, render_text
 from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.enums import (
     CompilationStatus,
@@ -39,6 +40,7 @@ from qa_schemas.enums import (
     TestCategory,
 )
 from qa_schemas.results import ExecutionReport, TestResult
+from qa_schemas.summary import RunSummary
 
 app = typer.Typer(
     name="qa",
@@ -378,6 +380,35 @@ def test_command(
     if json_path is not None:
         _write_summary(run, config, json_path)
     if not run.ok:
+        raise typer.Exit(EXIT_ERROR)
+
+
+@app.command("summary")
+def summary_command(
+    files: Annotated[
+        list[Path], typer.Argument(help="JSON summaries written by qa test/rerun --json.")
+    ],
+    markdown: Annotated[
+        bool, typer.Option("--markdown", help="Markdown, e.g. for $GITHUB_STEP_SUMMARY.")
+    ] = False,
+) -> None:
+    """Combine the JSON summaries of several runs into one overview (for CI).
+
+    Exits with 0 only if every run passed.
+    """
+    summaries = []
+    for path in files:
+        try:
+            summaries.append(RunSummary.model_validate_json(path.read_text(encoding="utf-8")))
+        except OSError as error:
+            typer.echo(f"Error: cannot read {path}: {error.strerror or error}", err=True)
+            raise typer.Exit(EXIT_ERROR) from None
+        except ValueError as error:
+            first = str(error).splitlines()[0]
+            typer.echo(f"Error: {path} is not a qa test --json summary ({first})", err=True)
+            raise typer.Exit(EXIT_ERROR) from None
+    typer.echo(render_markdown(summaries) if markdown else render_text(summaries), nl=False)
+    if not all_ok(summaries):
         raise typer.Exit(EXIT_ERROR)
 
 

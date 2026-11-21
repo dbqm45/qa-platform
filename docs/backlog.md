@@ -97,7 +97,8 @@
 | TASK-069 | Done — host allowlist: environment hosts + allowed_hosts for API (incl. redirects), browser navigation and hooks; size limits not needed (max_body_bytes exists) |
 | TASK-054 | Done — --mode contract: responses checked against OpenAPI 3.0/3.1 (jsonschema); undocumented operations are requirement_ambiguity; works with --mock |
 | TASK-061 | Done — fingerprint per execution (spec, test cases, plan, environment, adapters, mocks, contracts, versions, repository commits); qa execution compare; rerun names changed inputs |
-| TASK-128 | In progress — CI workflow (lint, types, tests with Chromium, pip-audit) in .github/workflows/ci.yml |
+| TASK-128 | Done — platform CI; qa summary (text/Markdown, exit code); qa-test GitHub Action for test projects |
+| TASK-129 | Done — examples/ci/qa.yml; the platform CI runs the action against the Example Shop on every push |
 
 ---
 

@@ -122,6 +122,8 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pyt
 
 - **checks**: the commands above, then all tests with an installed Chromium and
   `QA_TEST_REQUIRE_BROWSER=1`, so browser tests fail instead of being skipped.
+- **example-project**: the `qa-test` action (for test projects, see
+  [`docs/ci.md`](docs/ci.md)) against the Example Shop, also in contract mode.
 - **audit**: `pip-audit` on the exact versions from `uv.lock`.
 
 ## Tests
@@ -242,7 +244,9 @@ uv run qa test --scenario login.feature --environment local
 
 Compiles the file, executes its ready specifications in a browser and stores
 results, evidence, a log and an HTML report in `.qa/executions/<id>/`.
-`uv run qa test --scenario login.feature --json build/qa-summary.json` also writes a versioned JSON summary for CI.
+`uv run qa test --scenario login.feature --json build/qa-summary.json` also writes a versioned JSON summary for CI;
+`qa summary` combines several, and a GitHub Action runs a whole project in CI
+([`docs/ci.md`](docs/ci.md)).
 `uv run qa execution list` and `uv run qa execution show <id>` browse the history;
 `uv run qa rerun --failed-only <id>` runs the failed test cases of an execution again;
 `uv run qa execution compare <id> <id>` names what differed between two executions

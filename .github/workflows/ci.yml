@@ -36,6 +36,31 @@ jobs:
           QA_TEST_REQUIRE_BROWSER: "1" # fail, not skip, if the browser cannot start
         run: uv run pytest --cov
 
+  # TASK-129: the qa-test action, exactly as a test project uses it, against the
+  # Example Shop. Keeps the action and examples/ci/qa.yml working.
+  example-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Start the Example Shop
+        run: |
+          python3 examples/app/shop_app.py --port 8000 &
+          for _ in $(seq 50); do curl -sf http://localhost:8000/api/health && break; sleep 0.2; done
+      - name: All example scenarios (browser and API)
+        uses: ./.github/actions/qa-test
+        with:
+          project: examples
+          artifact-name: example-results
+      - name: API contract of the Example Shop
+        uses: ./.github/actions/qa-test
+        with:
+          project: examples
+          scenarios: scenarios/api.feature
+          args: --mode contract
+          browser: "false"
+          artifact-name: example-contract-results
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10

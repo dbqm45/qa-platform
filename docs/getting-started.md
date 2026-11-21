@@ -335,7 +335,8 @@ qa rerun --failed-only 20261121-113407
 ```
 
 In CI, add `--json build/qa-summary.json` to `qa test` (or `qa rerun`) for one
-machine-readable summary of the run.
+machine-readable summary of the run; for GitHub Actions there is a ready
+action ([ci.md](ci.md)).
 
 Statuses, failure classifications, modes, timeouts, reruns and the JSON
 summary are explained in [execution.md](execution.md).

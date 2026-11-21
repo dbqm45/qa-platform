@@ -5,6 +5,7 @@
 | `app/shop_app.py` | **Example Shop**, a small application to test the platform against |
 | `qa.yaml` | project configuration for the Example Shop |
 | `scenarios/` | Gherkin scenarios for the Example Shop: `login.feature`, `contact.feature` (browser), `api.feature` (API), `orders.feature` (API + browser) |
+| `ci/qa.yml` | example GitHub Actions workflow for a test project ([docs/ci.md](../docs/ci.md)) |
 | `openapi/shop-api.yaml` | OpenAPI contract of the Example Shop API, for `qa test --scenario api.feature --mode contract` |
 | `specifications/`, `plans/` | sample Test Specification (compiled from the first login scenario) and Execution Plans, as schema reference |
 
