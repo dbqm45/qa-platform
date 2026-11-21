@@ -158,6 +158,10 @@ How step text is linked to implementations: [`docs/steps.md`](docs/steps.md).
 Adapters provide browsers, HTTP clients and other resources to steps:
 [`docs/adapters.md`](docs/adapters.md).
 
+## Execution
+
+Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
+
 ## Configuration
 
 Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).

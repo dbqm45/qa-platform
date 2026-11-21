@@ -52,15 +52,20 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from pydantic import Field
 
+
 class Method(StrEnum):
     GET = "GET"
     POST = "POST"
 
+
 @registry.step("api.status", "the status is {int}", kind=StepKind.EXPECTATION, capability="http")
 def status_is(context, code: Annotated[int, Field(ge=100, le=599)]) -> None: ...
 
-@registry.step("api.send", "the client sends {word} {string}", kind=StepKind.ACTION, capability="http")
-def send(context, method: Method, path: str) -> None: ...   # receives Method.POST, not "POST"
+
+@registry.step(
+    "api.send", "the client sends {word} {string}", kind=StepKind.ACTION, capability="http"
+)
+def send(context, method: Method, path: str) -> None: ...  # receives Method.POST, not "POST"
 ```
 
 Values are checked when scenarios are compiled: `Then the status is 999` is
@@ -77,6 +82,7 @@ keyword-only parameter with that exact name:
 ```python
 @registry.step("ui.fill", "the user fills the form:", kind=StepKind.ACTION, capability="browser")
 def fill(context, *, data_table: tuple[tuple[str, ...], ...]) -> None: ...
+
 
 @registry.step("api.post", "the client posts to {string}:", kind=StepKind.ACTION, capability="http")
 def post(context, path: str, *, doc_string: str) -> None: ...

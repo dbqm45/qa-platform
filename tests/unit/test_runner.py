@@ -1,0 +1,532 @@
+"""Local Runner, execution lifecycle and error classification (TASK-034..036, TASK-038)."""
+
+import re
+from datetime import UTC, datetime, timedelta
+from pathlib import Path, PurePosixPath
+from typing import Any, ClassVar
+
+import pytest
+
+from qa_core.scenarios.compilation import compile_documents
+from qa_core.scenarios.parsing import parse_document
+from qa_core.steps.registry import StepRegistry
+from qa_execution.adapters import ExecutionContext, TestAdapter
+from qa_execution.errors import StepFailure, TestDataError, TestEnvironmentError
+from qa_execution.registry import AdapterRegistry
+from qa_execution.runner import (
+    ExecutionRequest,
+    LocalRunner,
+    NotExecutableError,
+    StepContext,
+    new_execution_id,
+)
+from qa_execution.targets import LocalTarget
+from qa_schemas.compilation import CompiledSpecification
+from qa_schemas.enums import (
+    CompilationStatus,
+    ExecutionMode,
+    ExecutionStatus,
+    FailureClassification,
+    ScenarioFormat,
+    StepKind,
+    TestCategory,
+)
+from qa_schemas.evidence import EvidenceReference
+from qa_schemas.execution import TestExecution
+from qa_schemas.plan import ExecutionPlan, ExecutionSettings
+from qa_schemas.project import Environment
+from qa_schemas.results import ExecutionReport
+from qa_schemas.scenario import ScenarioDocument, content_hash
+from qa_schemas.specification import TestCase
+
+S, C = ExecutionStatus, FailureClassification
+T0 = datetime(2026, 1, 1, 12, tzinfo=UTC)
+
+# --- Fakes -------------------------------------------------------------------
+
+EVENTS: list[str] = []
+
+
+class FakeAdapter(TestAdapter):
+    """Records lifecycle calls; behaviour can be switched per test via ``fail``."""
+
+    fail: ClassVar[set[str]] = set()
+
+    def __init__(self) -> None:
+        self.prepared = False
+
+    def _event(self, event: str) -> None:
+        EVENTS.append(f"{self.name}.{event}")
+        if f"{self.name}.{event}" in self.fail:
+            raise RuntimeError(f"{event} broke")
+
+    def validate(self, specification: Any) -> list[str]:
+        EVENTS.append(f"{self.name}.validate")
+        return ["no base_url"] if f"{self.name}.validate" in self.fail else []
+
+    def prepare(self, context: ExecutionContext) -> None:
+        self._event("prepare")
+        self.prepared = True
+
+    def start_test_case(self, test_case: TestCase) -> None:
+        self._event(f"start:{test_case.id}")
+
+    def finish_test_case(self, test_case: TestCase, passed: bool) -> None:
+        self._event(f"finish:{test_case.id}:{passed}")
+
+    def collect_evidence(self, test_case: TestCase) -> list[EvidenceReference]:
+        self._event("evidence")
+        return [EvidenceReference(kind="log", path=PurePosixPath(f"{test_case.id}.log"))]
+
+    def cleanup(self) -> None:
+        self._event("cleanup")
+        self.prepared = False
+
+    @property
+    def resource(self) -> Any:
+        return f"{self.name}-resource"
+
+
+class Browser(FakeAdapter):
+    name = "browser"
+    capabilities = frozenset({"browser"})
+
+
+class Http(FakeAdapter):
+    name = "http"
+    capabilities = frozenset({"http"})
+
+
+def _behave(context: StepContext, what: str) -> None:
+    EVENTS.append(f"step:{what}:{context.resource('browser')}")
+    match what:
+        case "fail":
+            raise StepFailure("expected 'Welcome', got 'Error'")
+        case "boom":
+            raise KeyError("missing")
+        case "timeout":
+            raise TimeoutError("page did not load")
+        case "data":
+            raise TestDataError("user alice does not exist")
+        case "env":
+            raise TestEnvironmentError("service down")
+        case "interrupt":
+            raise KeyboardInterrupt
+
+
+def _do(context: StepContext, what: str) -> None:
+    _behave(context, what)
+
+
+def _check(context: StepContext, what: str) -> None:
+    _behave(context, what)
+
+
+def _api(context: StepContext, what: str) -> None:
+    EVENTS.append(f"api:{what}:{context.resource('http')}")
+
+
+def _steps() -> StepRegistry:
+    registry = StepRegistry()
+    registry.register(
+        "t.do", "the user does {string}", _do, kind=StepKind.ACTION, capability="browser"
+    )
+    registry.register(
+        "t.check", "outcome {string}", _check, kind=StepKind.EXPECTATION, capability="browser"
+    )
+    registry.register(
+        "t.api", "the api does {string}", _api, kind=StepKind.ACTION, capability="http"
+    )
+    return registry
+
+
+def _compiled(*steps: str, outline_rows: list[str] | None = None) -> CompiledSpecification:
+    body = "\n".join(f"    {s}" for s in steps)
+    if outline_rows is None:
+        content = f"Feature: F\n  Scenario: S\n{body}\n"
+    else:
+        rows = "\n".join(f"      | {r} |" for r in outline_rows)
+        content = (
+            f"Feature: F\n  Scenario Outline: S\n{body}\n    Examples:\n      | what |\n{rows}\n"
+        )
+    document = ScenarioDocument(
+        path=PurePosixPath("scenarios/f.feature"),
+        format=ScenarioFormat.GHERKIN,
+        content=content,
+        content_hash=content_hash(content.encode()),
+    )
+    [compiled] = compile_documents(
+        [parse_document(document)], _steps(), base=PurePosixPath("scenarios")
+    ).specifications
+    return compiled
+
+
+PASSING = ('When the user does "pass"', 'Then outcome "pass"')
+
+
+class RecordingStore:
+    def __init__(self) -> None:
+        self.history: list[tuple[str, ExecutionStatus]] = []
+        self.saved: dict[str, TestExecution] = {}
+
+    def add(self, execution: TestExecution) -> None:
+        self.history.append(("add", execution.status))
+        self.saved[execution.id] = execution
+
+    def update(self, execution: TestExecution) -> None:
+        assert execution.id in self.saved
+        self.history.append(("update", execution.status))
+        self.saved[execution.id] = execution
+
+
+@pytest.fixture(autouse=True)
+def _reset() -> None:
+    EVENTS.clear()
+    FakeAdapter.fail = set()
+
+
+@pytest.fixture
+def store() -> RecordingStore:
+    return RecordingStore()
+
+
+def _runner(tmp_path: Path, store: RecordingStore | None = None, **kwargs: Any) -> LocalRunner:
+    times = iter(T0 + timedelta(seconds=i) for i in range(1000))
+    return LocalRunner(
+        _steps(),
+        AdapterRegistry([Browser, Http]),
+        evidence_root=tmp_path / "evidence",
+        store=store,
+        clock=lambda: next(times),
+        **kwargs,
+    )
+
+
+def _plan(compiled: CompiledSpecification, **settings: Any) -> ExecutionPlan:
+    return ExecutionPlan(
+        id="p.local",
+        specification_id=compiled.specification.id,
+        mode=ExecutionMode.FE,
+        category=TestCategory.FUNCTIONAL,
+        environment="local",
+        adapters=("browser", "http"),
+        settings=ExecutionSettings(**settings),
+    )
+
+
+def _run(
+    tmp_path: Path,
+    compiled: CompiledSpecification,
+    store: RecordingStore | None = None,
+    **settings: Any,
+) -> ExecutionReport:
+    request = ExecutionRequest(
+        project_id="shop",
+        compiled=compiled,
+        plan=_plan(compiled, **settings),
+        environment=Environment(name="local"),
+    )
+    return _runner(tmp_path, store).run(request)
+
+
+# --- Successful execution ----------------------------------------------------
+
+
+def test_passing_execution(tmp_path: Path, store: RecordingStore) -> None:
+    report = _run(tmp_path, _compiled(*PASSING), store)
+
+    assert report.execution.status is S.PASSED
+    [result] = report.results
+    assert (result.status, result.failure, result.steps_total) == (S.PASSED, None, 2)
+    assert [(s.action, s.status) for s in result.steps] == [
+        ("t.do", S.PASSED),
+        ("t.check", S.PASSED),
+    ]
+    assert result.evidence[0].path == PurePosixPath("f.s.log")
+    assert report.cleanup_errors == ()
+
+
+def test_steps_receive_parameters_and_adapter_resources(tmp_path: Path) -> None:
+    _run(
+        tmp_path,
+        _compiled('When the user does "pass"', 'And the api does "ping"', 'Then outcome "pass"'),
+    )
+    steps = [e for e in EVENTS if e.startswith(("step:", "api:"))]
+    assert steps == [
+        "step:pass:browser-resource",
+        "api:ping:http-resource",
+        "step:pass:browser-resource",
+    ]
+
+
+def test_adapter_lifecycle_order(tmp_path: Path) -> None:
+    _run(tmp_path, _compiled(*PASSING))
+    lifecycle = [e for e in EVENTS if e.startswith("browser.")]
+    assert lifecycle == [
+        "browser.validate", "browser.prepare", "browser.start:f.s",
+        "browser.finish:f.s:True", "browser.evidence", "browser.cleanup",
+    ]  # fmt: skip
+
+
+def test_only_needed_adapters_are_used(tmp_path: Path) -> None:
+    _run(tmp_path, _compiled(*PASSING))
+    assert not any(e.startswith("http.") for e in EVENTS)
+
+
+# --- Lifecycle and persistence (TASK-036) ------------------------------------
+
+
+def test_status_is_persisted_at_every_transition(tmp_path: Path, store: RecordingStore) -> None:
+    report = _run(tmp_path, _compiled(*PASSING), store)
+
+    assert store.history == [("add", S.PENDING), ("update", S.RUNNING), ("update", S.PASSED)]
+    saved = store.saved[report.execution.id]
+    assert saved == report.execution
+    assert saved.started_at is not None and saved.finished_at is not None
+    assert (saved.project_id, saved.plan_id, saved.mode) == ("shop", "p.local", ExecutionMode.FE)
+
+
+def test_every_execution_has_a_unique_id(tmp_path: Path) -> None:
+    runner = _runner(tmp_path)
+    compiled = _compiled(*PASSING)
+    request = ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    ids = {runner.run(request).execution.id for _ in range(5)}
+    assert len(ids) == 5
+
+
+def test_execution_id_format() -> None:
+    execution_id = new_execution_id(datetime(2026, 11, 21, 14, 30, 5, tzinfo=UTC))
+    assert re.fullmatch(r"20261121-143005-[0-9a-f]{6}", execution_id)
+
+
+def test_evidence_directory_per_execution(tmp_path: Path) -> None:
+    report = _run(tmp_path, _compiled(*PASSING))
+    assert (tmp_path / "evidence" / report.execution.id).is_dir()
+
+
+# --- Failures and classification (TASK-038) ---------------------------------
+
+
+def test_failed_expectation_is_failed_application_bug(
+    tmp_path: Path, store: RecordingStore
+) -> None:
+    report = _run(
+        tmp_path,
+        _compiled('When the user does "pass"', 'Then outcome "fail"', 'And outcome "pass"'),
+        store,
+    )
+
+    assert report.execution.status is S.FAILED
+    assert store.history[-1] == ("update", S.FAILED)
+    [result] = report.results
+    assert result.status is S.FAILED
+    assert result.failure is not None
+    assert (result.failure.classification, result.failure.step_index) == (C.APPLICATION_BUG, 1)
+    assert result.failure.message == "expected 'Welcome', got 'Error'"
+    assert (len(result.steps), result.steps_total) == (2, 3)  # third step not run
+    assert "browser.finish:f.s:False" in EVENTS
+    assert "browser.cleanup" in EVENTS
+
+
+@pytest.mark.parametrize(
+    ("behaviour", "classification", "error_type"),
+    [
+        ("boom", C.TEST_IMPLEMENTATION_ERROR, "KeyError"),
+        ("timeout", C.ENVIRONMENT_ERROR, "TimeoutError"),
+        ("data", C.TEST_DATA_ERROR, "TestDataError"),
+        ("env", C.ENVIRONMENT_ERROR, "TestEnvironmentError"),
+    ],
+)
+def test_errors_are_never_reported_as_failures(
+    tmp_path: Path, behaviour: str, classification: FailureClassification, error_type: str
+) -> None:
+    report = _run(tmp_path, _compiled(f'When the user does "{behaviour}"', 'Then outcome "pass"'))
+
+    [result] = report.results
+    assert result.status is S.ERROR
+    assert report.execution.status is S.ERROR
+    assert result.failure is not None
+    assert (result.failure.classification, result.failure.error_type) == (
+        classification,
+        error_type,
+    )
+    assert result.steps[0].status is S.ERROR
+
+
+def test_missing_step_definition_is_an_implementation_error(tmp_path: Path) -> None:
+    compiled = _compiled(*PASSING)
+    runner = LocalRunner(
+        StepRegistry(), AdapterRegistry([Browser, Http]), evidence_root=tmp_path, clock=lambda: T0
+    )
+    request = ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+
+    [result] = runner.run(request).results
+
+    assert result.status is S.ERROR
+    assert result.failure is not None
+    assert result.failure.classification is C.TEST_IMPLEMENTATION_ERROR
+    assert "'t.do' is not registered" in result.failure.message
+
+
+# --- Not executable: nothing starts ------------------------------------------
+
+
+def test_blocked_specification_is_not_executed(tmp_path: Path, store: RecordingStore) -> None:
+    compiled = _compiled("When the user flies", 'Then outcome "pass"')
+    assert compiled.status is CompilationStatus.BLOCKED
+
+    with pytest.raises(NotExecutableError, match="is blocked and cannot be executed"):
+        _run(tmp_path, compiled, store)
+    assert store.history == []
+    assert EVENTS == []
+
+
+def test_needs_review_is_not_executed(tmp_path: Path) -> None:
+    with pytest.raises(NotExecutableError, match="needs_review"):
+        _run(tmp_path, _compiled('When the user does "pass"'))
+
+
+def test_plan_for_another_specification_is_rejected(tmp_path: Path) -> None:
+    compiled = _compiled(*PASSING)
+    plan = _plan(compiled).model_copy(update={"specification_id": "other"})
+    with pytest.raises(NotExecutableError, match="is for specification 'other'"):
+        _runner(tmp_path).run(ExecutionRequest("shop", compiled, plan, Environment(name="local")))
+
+
+def test_plan_for_another_environment_is_rejected(tmp_path: Path) -> None:
+    compiled = _compiled(*PASSING)
+    with pytest.raises(NotExecutableError, match="targets environment 'local', not 'qa'"):
+        _runner(tmp_path).run(
+            ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="qa"))
+        )
+
+
+def test_missing_capability_is_rejected(tmp_path: Path) -> None:
+    compiled = _compiled(*PASSING)
+    plan = _plan(compiled).model_copy(update={"adapters": ("http",)})
+    with pytest.raises(NotExecutableError, match="not provided by the allowed adapters: browser"):
+        _runner(tmp_path).run(ExecutionRequest("shop", compiled, plan, Environment(name="local")))
+
+
+# --- Adapter problems --------------------------------------------------------
+
+
+def test_adapter_validation_problem_stops_before_prepare(tmp_path: Path) -> None:
+    FakeAdapter.fail = {"browser.validate"}
+
+    report = _run(tmp_path, _compiled(*PASSING))
+
+    assert report.execution.status is S.ERROR
+    assert report.failure is not None
+    assert report.failure.classification is C.ENVIRONMENT_ERROR
+    assert report.failure.message == "browser: no base_url"
+    assert [r.status for r in report.results] == [S.ERROR]
+    assert "browser.prepare" not in EVENTS
+
+
+def test_prepare_failure_still_cleans_up(tmp_path: Path) -> None:
+    FakeAdapter.fail = {"browser.prepare"}
+
+    report = _run(tmp_path, _compiled(*PASSING))
+
+    assert report.execution.status is S.ERROR
+    assert report.failure is not None
+    assert report.failure.message == "browser could not be prepared: prepare broke"
+    assert report.failure.classification is C.ENVIRONMENT_ERROR
+    assert "browser.cleanup" in EVENTS
+    assert not any(e.startswith("step:") for e in EVENTS)
+
+
+def test_cleanup_error_does_not_change_the_outcome(tmp_path: Path) -> None:
+    FakeAdapter.fail = {"browser.cleanup"}
+
+    passed = _run(tmp_path, _compiled(*PASSING))
+    failed = _run(tmp_path, _compiled('When the user does "pass"', 'Then outcome "fail"'))
+
+    assert passed.execution.status is S.PASSED
+    assert failed.execution.status is S.FAILED
+    assert passed.cleanup_errors == ("browser: cleanup broke",)
+
+
+def test_evidence_failure_does_not_change_the_outcome(tmp_path: Path) -> None:
+    FakeAdapter.fail = {"browser.evidence"}
+
+    [result] = _run(tmp_path, _compiled(*PASSING)).results
+
+    assert result.status is S.PASSED
+    assert result.notes == ("browser: evidence collection failed: evidence broke",)
+
+
+def test_finish_hook_error_after_a_pass_is_an_error(tmp_path: Path) -> None:
+    FakeAdapter.fail = {"browser.finish:f.s:True"}
+    [result] = _run(tmp_path, _compiled(*PASSING)).results
+    assert result.status is S.ERROR
+    assert result.failure is not None
+    assert result.failure.message.startswith("browser could not finish the test case")
+
+
+def test_finish_hook_error_does_not_hide_a_failure(tmp_path: Path) -> None:
+    FakeAdapter.fail = {"browser.finish:f.s:False"}
+    [result] = _run(tmp_path, _compiled('When the user does "pass"', 'Then outcome "fail"')).results
+    assert result.status is S.FAILED
+    assert result.failure is not None
+    assert result.failure.classification is C.APPLICATION_BUG
+    assert result.notes == ("browser.finish_test_case: finish:f.s:False broke",)
+
+
+# --- Several test cases ------------------------------------------------------
+
+
+def test_all_cases_run_and_any_failure_fails_the_execution(tmp_path: Path) -> None:
+    compiled = _compiled(
+        'When the user does "pass"', 'Then outcome "<what>"', outline_rows=["pass", "fail", "pass"]
+    )
+
+    report = _run(tmp_path, compiled)
+
+    assert [r.status for r in report.results] == [S.PASSED, S.FAILED, S.PASSED]
+    assert report.execution.status is S.FAILED
+
+
+def test_fail_fast_cancels_remaining_cases(tmp_path: Path) -> None:
+    compiled = _compiled(
+        'When the user does "pass"', 'Then outcome "<what>"', outline_rows=["fail", "pass", "pass"]
+    )
+
+    report = _run(tmp_path, compiled, fail_fast=True)
+
+    assert [r.status for r in report.results] == [S.FAILED, S.CANCELLED, S.CANCELLED]
+    assert report.results[1].notes == ("not run: fail_fast after f.s:1 did not pass",)
+    assert report.execution.status is S.FAILED
+
+
+def test_error_outranks_failure(tmp_path: Path) -> None:
+    compiled = _compiled(
+        'When the user does "pass"', 'Then outcome "<what>"', outline_rows=["fail", "boom"]
+    )
+    assert _run(tmp_path, compiled).execution.status is S.ERROR
+
+
+# --- Cancellation ------------------------------------------------------------
+
+
+def test_interrupt_cancels_cleans_up_and_propagates(tmp_path: Path, store: RecordingStore) -> None:
+    with pytest.raises(KeyboardInterrupt):
+        _run(tmp_path, _compiled('When the user does "interrupt"', 'Then outcome "pass"'), store)
+
+    assert store.history[-1] == ("update", S.CANCELLED)
+    assert next(iter(store.saved.values())).finished_at is not None
+    assert "browser.cleanup" in EVENTS
+
+
+# --- Execution target (TASK-034) ---------------------------------------------
+
+
+def test_local_target_runs_in_process(tmp_path: Path) -> None:
+    compiled = _compiled(*PASSING)
+    target = LocalTarget(_runner(tmp_path))
+    report = target.execute(
+        ExecutionRequest("shop", compiled, _plan(compiled), Environment(name="local"))
+    )
+    assert target.name == "local"
+    assert report.execution.status is S.PASSED

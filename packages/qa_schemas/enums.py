@@ -126,3 +126,21 @@ class IssueSeverity(StrEnum):
     """Blocks compilation and execution."""
     WARNING = "warning"
     """Worth fixing, but does not block anything."""
+
+
+@unique
+class FailureClassification(StrEnum):
+    """Why a test did not pass (TASK-038)."""
+
+    APPLICATION_BUG = "application_bug"
+    """The application under test did not behave as specified."""
+    TEST_IMPLEMENTATION_ERROR = "test_implementation_error"
+    """A step implementation, adapter or the platform itself is broken."""
+    ENVIRONMENT_ERROR = "environment_error"
+    """The environment is unreachable, misconfigured or too slow."""
+    TEST_DATA_ERROR = "test_data_error"
+    """Required test data is missing or in an unexpected state."""
+    DEPENDENCY_ERROR = "dependency_error"
+    """A service the application depends on failed."""
+    REQUIREMENT_AMBIGUITY = "requirement_ambiguity"
+    """The scenario does not define the expected behaviour clearly enough."""

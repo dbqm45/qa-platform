@@ -30,7 +30,7 @@
 | TASK-007 | Done |
 | TASK-010 | Done |
 | TASK-011 | Done |
-| TASK-006 | In progress — all models done except TestResult (TASK-057) |
+| TASK-006 | Done |
 | TASK-008 | Done |
 | TASK-009 | Done |
 | TASK-012 | Done |
@@ -52,6 +52,10 @@
 | TASK-029 | Done — adapters provide resources, runner executes steps (ADR-015) |
 | TASK-030 | Done |
 | TASK-032 | Done |
+| TASK-034 | Done — local target only |
+| TASK-035 | Done |
+| TASK-036 | Done |
+| TASK-038 | Done |
 
 ---
 

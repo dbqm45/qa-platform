@@ -61,6 +61,7 @@ module defines an enum containing a status value.
 | `ScenarioFormat` | `gherkin` | Format of a scenario document; selects the parser. |
 | `StepKeywordType` | `context`, `action`, `outcome`, `conjunction`, `unknown` | Gherkin keyword type, language independent. |
 | `IssueSeverity` | `error`, `warning` | Severity of a validation finding. |
+| `FailureClassification` | `application_bug`, `test_implementation_error`, `environment_error`, `test_data_error`, `dependency_error`, `requirement_ambiguity` | Why a test did not pass. |
 
 ### ADR-002: Two status enums instead of one (TASK-007)
 
@@ -97,6 +98,7 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | `qa_schemas.execution` | `TestExecution` |
 | `qa_schemas.compilation` | `CompiledSpecification`, `UnresolvedStep` (format of `.qa/specifications/*.json`) |
 | `qa_schemas.evidence` | `EvidenceReference` |
+| `qa_schemas.results` | `TestResult`, `StepResult`, `Failure`, `ExecutionReport` |
 | `qa_schemas.scenario` | `ScenarioDocument` (raw input); `ParseResult`, `ParsedFeature`, `Scenario`, `ScenarioStep`, `Examples`, `ParseIssue` |
 
 `Project` validates cross-references: repository and environment names are
@@ -404,3 +406,17 @@ engine depends on no testing framework.
 Playwright and HTTPX both have complete synchronous APIs, and steps run
 strictly in order. Async would add complexity to adapters, steps and tests
 without a benefit for the local runner.
+
+## Execution engine (TASK-034, TASK-035, TASK-036, TASK-038)
+
+| Module | Responsibility |
+|--------|----------------|
+| `qa_execution.targets` | `ExecutionTarget` interface; `LocalTarget` (remote/Kubernetes are post-MVP) |
+| `qa_execution.runner` | `LocalRunner`: checks, adapter lifecycle, step execution, status transitions |
+| `qa_execution.errors` | `StepFailure`, classified errors, `classify()` |
+| `qa_schemas.results` | normalized results, identical for every adapter |
+
+The runner persists status through an `ExecutionStore` protocol, which
+`qa_core.storage.ExecutionRepository` satisfies; it has no SQL of its own.
+Clock and id factory are injectable, so tests are deterministic.
+Behaviour for users and step authors: [`execution.md`](execution.md).
