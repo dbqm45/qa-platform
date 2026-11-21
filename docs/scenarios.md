@@ -10,6 +10,21 @@ Feature, Rule, Background, Scenario / Example, Scenario Outline / Template,
 Examples, Given / When / Then / And / But / `*`, tags, descriptions,
 data tables and doc strings.
 
+## Validating
+
+```bash
+qa scenario validate [-c qa.yaml]
+```
+
+Finds all `.feature` files under `scenario_dir` (relative to `qa.yaml`),
+parses and validates them, and prints one line per finding followed by a summary:
+
+```
+<path>:<line>[:<column>]: <error|warning> [<code>] <message>
+```
+
+Exits with `1` if there is at least one error, otherwise `0`.
+
 ## Validation rules
 
 Every scenario file is validated before compilation. Errors block compilation;
@@ -18,6 +33,8 @@ stable code.
 
 | Code | Severity | Meaning |
 |------|----------|---------|
+| `discovery` | error | The scenario directory is missing, or a file cannot be read, is not UTF-8 or is larger than 1 MB. |
+| `discovery.no-files` | warning | No `.feature` files were found. |
 | `syntax` | error | Invalid Gherkin syntax. |
 | `document.no-feature` | error | The file contains no `Feature`. |
 | `feature.missing-name` | error | `Feature:` has no name. |
@@ -40,3 +57,12 @@ Notes:
 - Placeholders in Background steps are not substituted by Gherkin, so they do
   not count as using a column.
 - A `Scenario` with `Examples` is validated like a Scenario Outline.
+
+## Change detection
+
+Every parsed scenario has a `content_hash` (sha256) of its meaningful content:
+name, keyword, tags, Rule, Background and own steps (keyword, text, data
+table, doc string) and Examples. Line numbers, indentation and descriptions are
+not included, so moving a scenario or editing another scenario in the same
+file does not change its hash. The file itself has a separate hash of its raw
+bytes.

@@ -13,6 +13,7 @@ from gherkin.dialect import Dialect
 from gherkin.errors import CompositeParserException, ParserException
 from gherkin.parser import Parser
 
+from qa_core.scenarios.traceability import scenario_content_hash
 from qa_schemas.enums import StepKeywordType
 from qa_schemas.scenario import (
     DocString,
@@ -152,18 +153,19 @@ def _scenario(
     rule: RuleReference | None,
     outline_keywords: set[str],
 ) -> Scenario:
-    return Scenario(
-        name=node["name"],
-        keyword=node["keyword"],
-        line=node["location"]["line"],
-        description=_description(node),
-        tags=_tags(node),
-        rule=rule,
-        background=background,
-        steps=_steps(node["steps"]),
-        is_outline=node["keyword"] in outline_keywords,
-        examples=tuple(_examples(e) for e in node.get("examples", [])),
-    )
+    fields: dict[str, Any] = {
+        "name": node["name"],
+        "keyword": node["keyword"],
+        "line": node["location"]["line"],
+        "description": _description(node),
+        "tags": _tags(node),
+        "rule": rule,
+        "background": background,
+        "steps": _steps(node["steps"]),
+        "is_outline": node["keyword"] in outline_keywords,
+        "examples": tuple(_examples(e) for e in node.get("examples", [])),
+    }
+    return Scenario(**fields, content_hash=scenario_content_hash(fields))
 
 
 def _steps(nodes: Iterable[Node]) -> tuple[ScenarioStep, ...]:

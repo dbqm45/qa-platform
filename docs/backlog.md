@@ -41,6 +41,8 @@
 | TASK-018 | Done |
 | TASK-019 | Done |
 | TASK-020 | Done |
+| TASK-021 | Done |
+| TASK-022 | Done |
 
 ---
 

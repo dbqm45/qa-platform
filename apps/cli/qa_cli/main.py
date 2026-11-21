@@ -10,6 +10,7 @@ import typer
 from qa_core.config import CONFIG_FILENAME, ConfigError
 from qa_core.config_edit import ConfigEditError, add_environment, add_repository
 from qa_core.init import InitError, initialize_project
+from qa_core.scenarios.service import validate_project
 from qa_core.storage import StorageError
 
 app = typer.Typer(
@@ -25,7 +26,9 @@ repo_app = typer.Typer(
     help="Manage repositories of the application under test.", no_args_is_help=True
 )
 env_app = typer.Typer(help="Manage target environments.", no_args_is_help=True)
+scenario_app = typer.Typer(help="Validate and compile scenarios.", no_args_is_help=True)
 app.add_typer(project_app, name="project")
+app.add_typer(scenario_app, name="scenario")
 project_app.add_typer(repo_app, name="repo")
 project_app.add_typer(env_app, name="env")
 
@@ -126,6 +129,31 @@ def _parse_services(values: list[str]) -> dict[str, str]:
             raise typer.BadParameter(f"service {key!r} given twice", param_hint="--service")
         services[key] = url
     return services
+
+
+@scenario_app.command("validate")
+def scenario_validate(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
+    """Validate all scenarios of the project. Exits with 1 if any error is found."""
+    with _cli_errors():
+        report = validate_project(config)
+
+    for issue in report.issues:
+        typer.echo(f"{issue.location()}: {issue.severity.value} [{issue.code}] {issue.message}")
+
+    errors, warnings = len(report.errors), len(report.warnings)
+    summary = (
+        f"Validated {_plural(report.documents, 'file')}, {_plural(report.scenarios, 'scenario')}: "
+        f"{_plural(errors, 'error')}, {_plural(warnings, 'warning')}"
+    )
+    if report.issues:
+        typer.echo("")
+    typer.echo(summary)
+    if not report.ok:
+        raise typer.Exit(EXIT_ERROR)
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
 
 
 @contextmanager

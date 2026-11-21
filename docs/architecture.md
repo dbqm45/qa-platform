@@ -291,3 +291,16 @@ Syntax errors from the parser become `syntax` issues, so the CLI reports
 everything in one format. Rules are pure functions over the parsed models;
 each `ValidationIssue` has a stable `code` for filtering and tests. The rule
 list is documented for users in [`scenarios.md`](scenarios.md).
+
+## Traceability and `qa scenario validate` (TASK-021, TASK-022)
+
+Each `ParsedFeature` carries the file path and the hash of its raw bytes; each
+`Scenario` carries its line and a `content_hash` computed by
+`qa_core.scenarios.traceability` from its fields, ignoring `line`, `column`
+and `description`. Specifications (TASK-023) can reference the scenario hash
+to detect which scenarios changed.
+
+`qa_core.scenarios.service.validate_project(config_path)` combines discovery,
+parsing and validation; discovery problems are merged into the report as
+`discovery` errors. Paths are resolved relative to `qa.yaml`, not the current
+directory. The CLI command only formats the report and sets the exit code.

@@ -95,6 +95,9 @@ class Scenario(SchemaModel):
     is_outline: bool = False
     """Declared with the Scenario Outline / Template keyword of the file's language."""
     examples: tuple[Examples, ...] = ()
+    content_hash: ContentHash
+    """Hash of the scenario's meaningful content (TASK-021): unaffected by line
+    numbers, descriptions and edits to other scenarios in the same file."""
 
 
 class ParsedFeature(SchemaModel):

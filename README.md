@@ -136,6 +136,19 @@ Exit codes: `0` success, `1` error (configuration, validation, storage), `2` inv
 Scenarios are Gherkin `.feature` files; supported constructs and validation
 rules are described in [`docs/scenarios.md`](docs/scenarios.md).
 
+```bash
+uv run qa scenario validate
+```
+
+```
+scenarios/login.feature:12: error [scenario.missing-name] scenario has no name
+scenarios/login.feature:20: warning [examples.unused-column] column 'role' is not used by any step
+
+Validated 3 files, 7 scenarios: 1 error, 1 warning
+```
+
+Exit code `1` if there is any error; warnings alone exit with `0`.
+
 ## Configuration
 
 Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).
