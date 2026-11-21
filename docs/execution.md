@@ -69,4 +69,18 @@ def greeting_contains(context, text: str) -> None:
 | `collect_evidence()` raises | a note only; the outcome never changes |
 | `cleanup()` raises | recorded in `cleanup_errors`; the outcome never changes |
 
+## Browser evidence
+
+For every test case the Playwright adapter writes to
+`<evidence root>/<execution id>/<test case id>/`:
+
+| File | When |
+|------|------|
+| `page.json` | always: final URL, title, browser console errors and uncaught page errors |
+| `screenshot.png` | full page; by default only when the test case did not pass (`screenshot`) |
+| `trace.zip` | only if enabled (`trace`); open with `uv run playwright show-trace trace.zip` |
+
+The files are listed in the test result's `evidence`. Collecting evidence
+never changes the outcome; problems are recorded as notes.
+
 Not yet implemented: step and execution timeouts (TASK-067).

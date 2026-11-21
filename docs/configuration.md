@@ -38,6 +38,10 @@ adapters:
     executable_path: null      # path to a browser binary; default: the one Playwright installed
     viewport_width: 1280       # 200..7680
     viewport_height: 720       # 200..4320
+    locator_strategies: [testid, role, label, text]   # order for plain-text locators; css not allowed
+    test_id_attribute: data-testid
+    screenshot: on-failure     # off | on-failure | always
+    trace: off                 # off | on-failure | always (traces are large)
 ```
 
 Each section is validated by its adapter when an execution starts (unknown

@@ -436,3 +436,22 @@ assembles the built-in step and adapter registries; it lives in
   is the plan's `step_timeout_seconds`.
 - A browser that cannot be launched or invalid adapter settings are
   `environment_error`s with a hint how to fix them.
+
+## Browser interactions, assertions, locators and evidence (TASK-041..044)
+
+- The `browser` resource is a `BrowserSession` (page, `BrowserConfig`, step
+  timeout), not the bare Playwright page, so steps can honour the configured
+  locator strategies and timeouts.
+- `qa_execution.browser.locators` parses and resolves locators;
+  `qa_execution.browser.ui` holds interaction and assertion steps;
+  `qa_execution.browser.navigation` the navigation steps.
+- Evidence is written in `collect_evidence` (which the runner guards so it can
+  never change an outcome); the browser context is closed afterwards.
+
+### ADR-017: Waiting without blocking Playwright
+
+Assertions and locators poll until their condition holds or the step timeout
+expires. Polling uses `page.wait_for_timeout`, never `time.sleep`: the sync
+API processes browser events (navigations, `page.url` updates) only while a
+Playwright call runs, so sleeping would make a waiting assertion miss the very
+change it waits for.

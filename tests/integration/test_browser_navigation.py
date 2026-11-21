@@ -31,17 +31,17 @@ S, C = ExecutionStatus, FailureClassification
 
 
 def _title_is(context: StepContext, title: str) -> None:
-    actual = context.resource("browser").title()
+    actual = context.resource("browser").page.title()
     if actual != title:
         raise StepFailure(f"title is {actual!r}, expected {title!r}")
 
 
 def _remember(context: StepContext) -> None:
-    context.resource("browser").evaluate("document.cookie = 'seen=1; path=/'")
+    context.resource("browser").page.evaluate("document.cookie = 'seen=1; path=/'")
 
 
 def _not_remembered(context: StepContext) -> None:
-    if "seen=1" in context.resource("browser").evaluate("document.cookie"):
+    if "seen=1" in context.resource("browser").page.evaluate("document.cookie"):
         raise StepFailure("cookie from another test case is visible")
 
 
@@ -93,6 +93,7 @@ def _run(
     compiled: CompiledSpecification,
     config: dict[str, Any],
     base_url: str | None,
+    timeout: float = 5,
 ) -> ExecutionReport:
     assert compiled.status is CompilationStatus.READY, compiled.unresolved
     runner = LocalRunner(
@@ -108,7 +109,7 @@ def _run(
         category=TestCategory.FUNCTIONAL,
         environment="local",
         adapters=("playwright",),
-        settings=ExecutionSettings(step_timeout_seconds=5),
+        settings=ExecutionSettings(step_timeout_seconds=timeout),
     )
     environment = Environment(name="local", base_url=base_url)  # type: ignore[arg-type]
     return runner.run(ExecutionRequest("shop", compiled, plan, environment))

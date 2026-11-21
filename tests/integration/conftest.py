@@ -10,9 +10,37 @@ from typing import Any
 
 import pytest
 
+FORM_PAGE = """<title>Login</title>
+<h1 id="hello">Hello</h1>
+<form action="/welcome.html" method="get">
+  <label>Email <input name="email"></label>
+  <label>Password <input name="password" type="password"></label>
+  <label>Country <select name="country">
+    <option value="">choose</option>
+    <option value="pl">Poland</option>
+    <option value="de">Germany</option>
+  </select></label>
+  <label><input type="checkbox" name="remember"> Remember me</label>
+  <button type="submit" data-testid="login-button">Log in</button>
+</form>
+<button disabled>Delete</button>
+<button>Save</button> <button>Save</button>
+<span data-testid="Profile">avatar</span> <a href="/profile">Profile</a>
+<p style="display:none">Secret</p>
+<div id="toast">Saved!</div>
+<div id="late-slot"></div>
+<script>
+  console.error("analytics failed to load");
+  setTimeout(() => document.getElementById("toast").remove(), 300);
+  const late = () => { document.getElementById("late-slot").innerHTML = "<p>Loaded later</p>"; };
+  setTimeout(late, 300);
+</script>"""
+
 PAGES = {
     "index.html": "<title>Home</title><h1>Home</h1><a id='next' href='/second.html'>next</a>",
     "second.html": "<title>Second</title><h1>Second</h1>",
+    "form.html": FORM_PAGE,
+    "welcome.html": "<title>Welcome</title><h1>Welcome</h1>",
 }
 DEFAULT_EXECUTABLE = Path("/opt/pw-browsers/chromium")
 

@@ -21,6 +21,7 @@ from playwright.sync_api import Page, Response
 from pydantic import AfterValidator
 
 from qa_core.steps.registry import StepRegistry
+from qa_execution.browser.adapter import BrowserSession, first_line
 from qa_execution.errors import StepFailure, TestEnvironmentError
 from qa_execution.runner import StepContext
 from qa_schemas.enums import StepKind
@@ -92,8 +93,13 @@ def register_navigation_steps(registry: StepRegistry) -> None:
 
 
 def _page(context: StepContext) -> Page:
-    page: Page = context.resource(CAPABILITY)
-    return page
+    return session(context).page
+
+
+def session(context: StepContext) -> "BrowserSession":
+    """The browser session of the current test case."""
+    value: BrowserSession = context.resource(CAPABILITY)
+    return value
 
 
 def _go(context: StepContext, url: str) -> None:
@@ -112,8 +118,9 @@ def _call(page: Page, what: str, action: Callable[[], Response | None]) -> Respo
     try:
         return action()
     except PlaywrightError as exc:
-        message = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
-        raise TestEnvironmentError(f"cannot {what}: {message} (current page: {page.url})") from None
+        raise TestEnvironmentError(
+            f"cannot {what}: {first_line(exc)} (current page: {page.url})"
+        ) from None
 
 
 def _check_response(page: Page, response: Response | None, url: str) -> None:

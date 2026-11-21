@@ -25,6 +25,61 @@ All can be used with Given or When.
 
 Every message includes the current page URL.
 
+### Elements and locators
+
+UI steps refer to elements with a locator, written as plain text or with an
+explicit strategy:
+
+| Written as | Finds |
+|------------|-------|
+| `"Log in"` | tries the strategies below in order |
+| `"testid:login-button"` | `data-testid="login-button"` (attribute configurable) |
+| `"role:button=Log in"` | ARIA role `button` with accessible name `Log in` (`role:heading` without a name) |
+| `"label:Email"` | form control labelled `Email` |
+| `"text:Welcome"` | element whose text is exactly `Welcome` |
+| `"css:#login > button"` | CSS selector |
+
+Plain text tries `testid`, then `role` (button, link, textbox, checkbox,
+heading, …), then `label`, then `text`; the order is configurable with
+`adapters.playwright.locator_strategies`. **CSS is only used when written
+explicitly**, so it never wins over semantic locators silently.
+
+- Only **visible** elements match.
+- The first strategy that finds anything decides: one element is used,
+  several are an error (`'Save' is ambiguous: 2 visible elements match by role: <button> "Save", …`).
+- Locators wait up to the step timeout for the element to appear; a missing
+  element fails with the strategies tried and the page URL.
+- Malformed locators (`css:`, `role:=Save`) are rejected when compiling.
+
+### Interactions (`browser`)
+
+| Step | Action |
+|------|--------|
+| `the user clicks "<element>"` | `ui.click` |
+| `the user fills "<element>" with "<value>"` | `ui.fill` |
+| `the user selects "<option>" in "<element>"` | `ui.select` (option value or label) |
+| `the user checks "<element>"` / `the user unchecks "<element>"` | `ui.check` / `ui.uncheck` |
+| `the user submits the form` | `ui.submit`: the form of the focused field, or the only form on the page |
+
+An element that cannot be used (disabled, not editable, covered) makes the
+step **failed** with Playwright's reason; a closed browser is an
+`environment_error`.
+
+### UI assertions (`browser`, expectations)
+
+| Step | Action |
+|------|--------|
+| `"<element>" is visible` / `"<element>" is hidden` | `ui.visible` / `ui.hidden` |
+| `the page shows "<text>"` | `ui.text-present` (visible text, substring, case-insensitive) |
+| `the URL is "<url or /path>"` | `ui.url-is` (a `/path` compares path, or path and query) |
+| `the URL contains "<text>"` | `ui.url-contains` |
+| `"<element>" is enabled` / `"<element>" is disabled` | `ui.enabled` / `ui.disabled` |
+| `"<element>" has value "<value>"` | `ui.value` |
+
+Assertions wait up to the step timeout for the condition, then fail with what
+was actually found (`'Email' has value '', expected 'x'`). Values of password
+fields are masked in messages.
+
 ## Writing step definitions
 
 A step definition connects step text in scenarios to an implementation.
