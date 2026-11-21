@@ -21,7 +21,8 @@ Everything is checked at registration time, so mistakes fail early.
 
 import inspect
 import re
-from collections.abc import Callable
+import typing
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,6 +30,7 @@ from cucumber_expressions.errors import CucumberExpressionError
 from cucumber_expressions.expression import CucumberExpression
 from cucumber_expressions.parameter_type_registry import ParameterTypeRegistry
 from cucumber_expressions.regular_expression import RegularExpression
+from pydantic import PydanticSchemaGenerationError, TypeAdapter, ValidationError
 
 from qa_schemas.base import IDENTIFIER_PATTERN, STABLE_ID_PATTERN
 from qa_schemas.enums import StepKind
@@ -55,6 +57,21 @@ def kinds_compatible(definition: StepKind, step: StepKind) -> bool:
     return (definition is StepKind.EXPECTATION) == (step is StepKind.EXPECTATION)
 
 
+class StepParameterError(ValueError):
+    """Step arguments do not satisfy the step definition (TASK-032)."""
+
+
+@dataclass(frozen=True)
+class StepArguments:
+    """What a step offers besides its text parameters."""
+
+    data_table: tuple[tuple[str, ...], ...] | None = None
+    doc_string: str | None = None
+
+
+NO_ARGUMENTS = StepArguments()
+
+
 @dataclass(frozen=True)
 class StepDefinition:
     id: str
@@ -64,7 +81,10 @@ class StepDefinition:
     capability: str
     handler: StepHandler
     parameter_names: tuple[str, ...]
+    accepts_data_table: bool
+    accepts_doc_string: bool
     _expression: CucumberExpression | RegularExpression
+    _validators: dict[str, TypeAdapter[Any]]
 
     def match(self, text: str) -> dict[str, StepParameter] | None:
         """Named parameter values if ``text`` matches the whole pattern, else None."""
@@ -73,6 +93,42 @@ class StepDefinition:
             return None
         values = [argument.value for argument in arguments]
         return dict(zip(self.parameter_names, values, strict=True))
+
+    def bind(
+        self, parameters: Mapping[str, StepParameter], arguments: StepArguments = NO_ARGUMENTS
+    ) -> dict[str, Any]:
+        """Validate parameters and step arguments; return keyword arguments for the handler.
+
+        Raises ``StepParameterError`` describing the first problem.
+        """
+        if set(parameters) != set(self.parameter_names):
+            expected = ", ".join(self.parameter_names) or "none"
+            raise StepParameterError(
+                f"expected parameters ({expected}), got ({', '.join(parameters) or 'none'})"
+            )
+        bound: dict[str, Any] = {}
+        for name in self.parameter_names:
+            try:
+                bound[name] = self._validators[name].validate_python(parameters[name])
+            except ValidationError as exc:
+                message = exc.errors(include_url=False)[0]["msg"]
+                raise StepParameterError(
+                    f"invalid value {parameters[name]!r} for parameter {name!r}: {message}"
+                ) from None
+
+        for name, accepted, value, label in (
+            ("data_table", self.accepts_data_table, arguments.data_table, "a data table"),
+            ("doc_string", self.accepts_doc_string, arguments.doc_string, "a doc string"),
+        ):
+            if accepted and value is None:
+                raise StepParameterError(f"step {self.id!r} requires {label}")
+            if not accepted and value is not None:
+                raise StepParameterError(
+                    f"the step has {label}, but {self.id!r} does not accept one"
+                )
+            if accepted:
+                bound[name] = value
+        return bound
 
 
 class StepRegistry:
@@ -130,14 +186,19 @@ class StepRegistry:
                     f"step {step_id!r} has the same pattern as {other.id!r}: {source!r}"
                 )
 
+        names = _parameter_names(step_id, handler, group_count)
+        keyword_only = _keyword_arguments(step_id, handler)
         definition = StepDefinition(
             id=step_id,
             pattern=source,
             kind=kind,
             capability=capability,
             handler=handler,
-            parameter_names=_parameter_names(step_id, handler, group_count),
+            parameter_names=names,
+            accepts_data_table="data_table" in keyword_only,
+            accepts_doc_string="doc_string" in keyword_only,
             _expression=expression,
+            _validators=_validators(step_id, handler, names),
         )
         self._definitions[step_id] = definition
         return definition
@@ -181,3 +242,43 @@ def _parameter_names(step_id: str, handler: StepHandler, expected: int) -> tuple
             f"takes {len(names)} after the context ({', '.join(names) or 'none'})"
         )
     return names
+
+
+STEP_ARGUMENT_NAMES = frozenset({"data_table", "doc_string"})
+"""Keyword-only handler parameters that receive the step's table / doc string."""
+
+
+def _keyword_arguments(step_id: str, handler: StepHandler) -> set[str]:
+    parameters = inspect.signature(handler).parameters.values()
+    names = {p.name for p in parameters if p.kind is p.KEYWORD_ONLY}
+    if unknown := sorted(names - STEP_ARGUMENT_NAMES):
+        raise StepRegistrationError(
+            f"step {step_id!r}: unknown keyword-only parameters {unknown}; "
+            "only data_table and doc_string are supported"
+        )
+    return names
+
+
+def _validators(
+    step_id: str, handler: StepHandler, names: tuple[str, ...]
+) -> dict[str, TypeAdapter[Any]]:
+    """A Pydantic validator per parameter, built from the handler's type annotations."""
+    try:
+        hints = typing.get_type_hints(handler, include_extras=True)
+    except (NameError, TypeError) as exc:
+        raise StepRegistrationError(
+            f"step {step_id!r}: cannot read type annotations: {exc}"
+        ) from None
+    validators: dict[str, TypeAdapter[Any]] = {}
+    for name in names:
+        if name not in hints:
+            raise StepRegistrationError(
+                f"step {step_id!r}: parameter {name!r} has no type annotation"
+            )
+        try:
+            validators[name] = TypeAdapter(hints[name])
+        except PydanticSchemaGenerationError as exc:
+            raise StepRegistrationError(
+                f"step {step_id!r}: unsupported annotation for {name!r}: {exc}"
+            ) from None
+    return validators

@@ -51,6 +51,7 @@
 | TASK-028 | Done — coverage map in tests/unit/test_compilation_pipeline.py |
 | TASK-029 | Done — adapters provide resources, runner executes steps (ADR-015) |
 | TASK-030 | Done |
+| TASK-032 | Done |
 
 ---
 

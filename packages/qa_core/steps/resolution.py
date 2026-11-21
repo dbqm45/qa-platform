@@ -6,7 +6,14 @@ exactly one definition of a compatible kind matches its whole text.
 
 from dataclasses import dataclass
 
-from qa_core.steps.registry import StepDefinition, StepRegistry, kinds_compatible
+from qa_core.steps.registry import (
+    NO_ARGUMENTS,
+    StepArguments,
+    StepDefinition,
+    StepParameterError,
+    StepRegistry,
+    kinds_compatible,
+)
 from qa_schemas.base import SchemaModel
 from qa_schemas.compilation import UnresolvedStep
 from qa_schemas.enums import StepKind
@@ -32,12 +39,22 @@ class SpecificationResolution(SchemaModel):
         return not self.unresolved
 
 
-def resolve_step(registry: StepRegistry, text: str, kind: StepKind) -> StepResolution:
+def resolve_step(
+    registry: StepRegistry,
+    text: str,
+    kind: StepKind,
+    arguments: StepArguments = NO_ARGUMENTS,
+) -> StepResolution:
+    """Find the definition for a step and check its parameters (TASK-032)."""
     matches = [(d, params) for d in registry.definitions if (params := d.match(text)) is not None]
     compatible = [(d, params) for d, params in matches if kinds_compatible(d.kind, kind)]
 
     if len(compatible) == 1:
         definition, parameters = compatible[0]
+        try:
+            definition.bind(parameters, arguments)
+        except StepParameterError as error:
+            return StepResolution(None, {}, f"{definition.id}: {error}")
         return StepResolution(definition, parameters, None)
     if compatible:
         ids = ", ".join(sorted(d.id for d, _ in compatible))
@@ -59,7 +76,11 @@ def resolve_specification(
     for case in specification.test_cases:
         steps = []
         for index, step in enumerate(case.steps):
-            result = resolve_step(registry, step.text, step.kind)
+            arguments = StepArguments(
+                data_table=step.data_table,
+                doc_string=step.doc_string.content if step.doc_string else None,
+            )
+            result = resolve_step(registry, step.text, step.kind, arguments)
             if result.definition is None:
                 unresolved.append(
                     UnresolvedStep(

@@ -10,14 +10,15 @@ adapters (e.g. browser and HTTP in FULL mode).
 from typing import Any
 from qa_execution.adapters import AdapterNotPreparedError, ExecutionContext, TestAdapter
 
+
 class MyHttpAdapter(TestAdapter):
-    name = "my-http"                       # used in Execution Plans
-    capabilities = frozenset({"http"})     # what steps can obtain from it
+    name = "my-http"  # used in Execution Plans
+    capabilities = frozenset({"http"})  # what steps can obtain from it
 
     def prepare(self, context: ExecutionContext) -> None:
         self._client = make_client(context.environment, context.settings)
 
-    def cleanup(self) -> None:             # always called, also after failures
+    def cleanup(self) -> None:  # always called, also after failures
         client, self._client = getattr(self, "_client", None), None
         if client:
             client.close()
@@ -51,9 +52,9 @@ write only below it). The API is synchronous.
 from qa_execution.registry import AdapterRegistry
 
 registry = AdapterRegistry([PlaywrightAdapter, HttpxAdapter])
-registry.available_capabilities              # frozenset({"browser", "http"})
-registry.select({"browser", "http"})         # one adapter per capability
-registry.select({"browser"}, allowed=["playwright"])   # restricted by the plan
+registry.available_capabilities  # frozenset({"browser", "http"})
+registry.select({"browser", "http"})  # one adapter per capability
+registry.select({"browser"}, allowed=["playwright"])  # restricted by the plan
 ```
 
 Adapter classes are registered (not instances): every execution gets fresh
