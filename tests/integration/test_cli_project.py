@@ -1,5 +1,6 @@
 """`qa project repo add` / `qa project env add` (TASK-014)."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -23,9 +24,13 @@ def _comments(path: Path) -> list[str]:
     return [line.strip() for line in path.read_text().splitlines() if line.strip().startswith("#")]
 
 
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
 def _run(*args: str) -> tuple[int, str]:
+    """Exit code and output as plain text (Typer colors usage errors in CI)."""
     result = runner.invoke(app, list(args))
-    return result.exit_code, result.output
+    return result.exit_code, ANSI.sub("", result.output)
 
 
 # --- repo add ----------------------------------------------------------------
