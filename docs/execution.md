@@ -1,5 +1,59 @@
 # Execution
 
+## Running tests
+
+```bash
+qa test --scenario login.feature [--environment local] [--mode fe|be|full] [--category functional]
+```
+
+1. The file is found as given, relative to the project root, or relative to
+   `scenario_dir`; it must be inside the project.
+2. It is compiled. A file with validation errors is not executed at all.
+3. Every `ready` specification gets an Execution Plan and is executed; others
+   are listed as `NOT RUN` with the reason.
+4. Results are stored in `.qa/executions/<execution id>/`:
+   `results.json` (complete report) and one folder of evidence per test case.
+   Status and timestamps are also kept in `.qa/qa.db`.
+
+```
+login.successful-login  (scenarios/login.feature:5)
+  PASSED    Successful login  (0.6s)
+  execution 20261121-073604-bc3f2e: PASSED  -> .qa/executions/20261121-073604-bc3f2e/results.json
+login.wrong-password  (scenarios/login.feature:12)
+  FAILED    Wrong password  (3.1s)
+            application_bug: the page does not show 'Welcome' (page: http://127.0.0.1:8000/login)
+            screenshot: .qa/executions/20261121-073610-8bf27a/login.wrong-password/screenshot.png
+  execution 20261121-073610-8bf27a: FAILED  -> .qa/executions/20261121-073610-8bf27a/results.json
+
+Ran 2 specifications from scenarios/login.feature on local: 1 failed, 1 passed
+```
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | every specification was executed and passed |
+| `1` | something failed, errored or could not be executed, or the request was invalid |
+| `2` | invalid command-line usage (e.g. unknown `--mode`) |
+
+`--environment` defaults to `default_environment`. The environment's
+`timeout_seconds` is the step timeout, so a failing assertion waits that long
+before it fails.
+
+### Execution Plans and modes
+
+The plan is generated (TASK-050, minimal). Without `--mode` the mode follows
+from the capabilities the steps need:
+
+| Mode | Requires | Chosen when the steps need |
+|------|----------|----------------------------|
+| `fe` | `browser` only | `browser` only |
+| `be` | no `browser` | anything without `browser` |
+| `full` | `browser` and something else | `browser` and something else |
+| `contract` | not implemented yet | never |
+
+An explicit mode that does not fit (e.g. `--mode be` for browser steps) is
+rejected and the specification is not executed. Only the `functional`
+category is supported so far.
+
 The Local Runner executes a compiled specification in the current process.
 Only `ready` specifications are executed; anything else is rejected before
 anything starts.

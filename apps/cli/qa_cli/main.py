@@ -20,7 +20,14 @@ from qa_core.scenarios.service import (
 )
 from qa_core.storage import StorageError
 from qa_execution.builtin import builtin_adapters, builtin_registry
-from qa_schemas.enums import CompilationStatus, IssueSeverity
+from qa_execution.service import TestRun, TestRunError, run_scenario
+from qa_schemas.enums import (
+    CompilationStatus,
+    ExecutionMode,
+    ExecutionStatus,
+    IssueSeverity,
+    TestCategory,
+)
 
 app = typer.Typer(
     name="qa",
@@ -219,6 +226,110 @@ def scenario_compile(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
         raise typer.Exit(EXIT_ERROR)
 
 
+@app.command("test")
+def test_command(
+    scenario: Annotated[
+        Path,
+        typer.Option(
+            "--scenario",
+            "-s",
+            help="Scenario file (relative to here, the project or scenario_dir).",
+        ),
+    ],
+    environment: Annotated[
+        str | None,
+        typer.Option(
+            "--environment", "-e", help="Target environment. Default: default_environment."
+        ),
+    ] = None,
+    mode: Annotated[
+        ExecutionMode | None,
+        typer.Option(
+            help="fe, be or full. Default: derived from the steps used.", case_sensitive=False
+        ),
+    ] = None,
+    category: Annotated[
+        TestCategory, typer.Option(help="Test category.", case_sensitive=False)
+    ] = TestCategory.FUNCTIONAL,
+    config: ConfigOption = Path(CONFIG_FILENAME),
+) -> None:
+    """Compile a scenario file and execute its ready specifications.
+
+    Exits with 0 only if every specification was executed and passed.
+    """
+    with _cli_errors():
+        run = run_scenario(
+            config,
+            scenario,
+            environment=environment,
+            mode=mode,
+            category=category,
+            steps=builtin_registry(),
+            adapters=builtin_adapters(),
+        )
+    _print_test_run(run)
+    if not run.ok:
+        raise typer.Exit(EXIT_ERROR)
+
+
+def _print_test_run(run: TestRun) -> None:
+    for issue in run.errors:
+        typer.echo(f"{issue.location()}: error [{issue.code}] {issue.message}")
+    if run.errors:
+        typer.echo(
+            f"\n{run.scenario} has errors; nothing was executed (see `qa scenario validate`)"
+        )
+        return
+
+    counts: Counter[str] = Counter()
+    for spec_run in run.runs:
+        spec = spec_run.compiled.specification
+        typer.echo(f"{spec.id}  ({spec.source.path}:{spec.source.line})")
+        if spec_run.report is None:
+            counts["not executed"] += 1
+            typer.echo(f"  NOT RUN  {spec_run.problem}")
+            continue
+        report = spec_run.report
+        counts[report.execution.status.value] += 1
+        for result in report.results:
+            seconds = result.duration_ms / 1000
+            typer.echo(f"  {result.status.value.upper():<9} {result.name}  ({seconds:.1f}s)")
+            if result.failure is not None:
+                typer.echo(
+                    f"            {result.failure.classification.value}: {result.failure.message}"
+                )
+            for note in result.notes:
+                typer.echo(f"            note: {note}")
+            evidence_dir = spec_run.results_path.parent if spec_run.results_path else None
+            if result.status is not ExecutionStatus.PASSED and evidence_dir is not None:
+                for ref in result.evidence:
+                    if ref.kind == "screenshot":
+                        typer.echo(
+                            f"            screenshot: {_display_path(evidence_dir / ref.path)}"
+                        )
+        if report.failure is not None:
+            typer.echo(f"  {report.failure.classification.value}: {report.failure.message}")
+        for error in report.cleanup_errors:
+            typer.echo(f"  cleanup: {error}")
+        typer.echo(
+            f"  execution {report.execution.id}: {report.execution.status.value.upper()}  "
+            f"-> {_display_path(spec_run.results_path) if spec_run.results_path else '-'}"
+        )
+
+    summary = ", ".join(f"{count} {status}" for status, count in sorted(counts.items()))
+    typer.echo(
+        f"\nRan {_plural(len(run.runs), 'specification')} from {run.scenario} "
+        f"on {run.environment}: {summary or 'nothing to run'}"
+    )
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(Path.cwd()))
+    except ValueError:
+        return str(path)
+
+
 def _plural(count: int, noun: str) -> str:
     return f"{count} {noun}{'' if count == 1 else 's'}"
 
@@ -228,6 +339,6 @@ def _cli_errors() -> Iterator[None]:
     """Turn expected domain errors into a message and exit code 1."""
     try:
         yield
-    except (ConfigError, ConfigEditError, InitError, StorageError) as error:
+    except (ConfigError, ConfigEditError, InitError, StorageError, TestRunError) as error:
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(EXIT_ERROR) from None

@@ -170,7 +170,12 @@ Adapters provide browsers, HTTP clients and other resources to steps:
 
 ## Execution
 
-Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
+```bash
+uv run qa test --scenario login.feature --environment local
+```
+
+Compiles the file, executes its ready specifications in a browser and stores
+results and evidence in `.qa/executions/<id>/`. Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execution.md).
 
 ## Configuration
 

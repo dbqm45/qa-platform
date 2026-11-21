@@ -63,6 +63,26 @@ class LocalFileSource:
         """Source for the project's configured ``scenario_dir``; ``root`` holds ``qa.yaml``."""
         return cls(root, [project.scenario_dir])
 
+    def read_file(self, path: Path) -> DiscoveryResult:
+        """Read one scenario file (absolute, or relative to the project root)."""
+        absolute = (self._root / path).resolve()
+        label = PurePosixPath(path.as_posix())
+        problems: list[DiscoveryProblem] = []
+        if not absolute.is_relative_to(self._root):
+            problems.append(DiscoveryProblem(path=label, message="file is outside the project"))
+        elif not absolute.is_file():
+            problems.append(DiscoveryProblem(path=label, message="file does not exist"))
+        elif (format_ := FORMAT_BY_SUFFIX.get(absolute.suffix.lower())) is None:
+            supported = ", ".join(sorted(FORMAT_BY_SUFFIX))
+            problems.append(
+                DiscoveryProblem(path=label, message=f"unsupported file type; expected {supported}")
+            )
+        else:
+            document = self._read(absolute, self._relative(absolute), format_, problems)
+            if document is not None:
+                return DiscoveryResult(documents=(document,))
+        return DiscoveryResult(problems=tuple(problems))
+
     def discover(self) -> DiscoveryResult:
         documents: dict[PurePosixPath, ScenarioDocument] = {}
         problems: list[DiscoveryProblem] = []

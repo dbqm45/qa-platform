@@ -1,11 +1,13 @@
 """Fixtures for integration tests: a local web server and a launchable browser."""
 
+import importlib.util
 import os
 import threading
 from collections.abc import Iterator
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import pytest
@@ -91,3 +93,26 @@ def browser_config() -> dict[str, Any]:
                 "run `uv run playwright install chromium`"
             )
     return config
+
+
+APP_PATH = Path(__file__).parents[2] / "examples/app/shop_app.py"
+
+
+def load_shop_app() -> ModuleType:
+    """The example application module (``examples/`` is not a package)."""
+    spec = importlib.util.spec_from_file_location("shop_app", APP_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="session")
+def shop_server() -> Iterator[Any]:
+    """A running Example Shop; call ``shop_server.state.reset()`` for a clean state."""
+    server = load_shop_app().ShopServer(("127.0.0.1", 0))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield server
+    server.shutdown()
+    server.server_close()

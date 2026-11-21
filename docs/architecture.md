@@ -455,3 +455,14 @@ expires. Polling uses `page.wait_for_timeout`, never `time.sleep`: the sync
 API processes browser events (navigations, `page.url` updates) only while a
 Playwright call runs, so sleeping would make a waiting assertion miss the very
 change it waits for.
+
+## `qa test`, plan generation and result storage (TASK-062, TASK-050, TASK-058)
+
+- `qa_execution.planning.create_plan()` derives a validated `ExecutionPlan`
+  from a specification, an environment and an optional mode, rejecting modes
+  that do not fit the required capabilities.
+- `qa_execution.service.run_scenario()` is the whole `qa test` flow: locate the
+  file, compile it, plan and run each ready specification with `LocalRunner`,
+  write `results.json` atomically. The CLI only formats `TestRun`.
+- Execution metadata goes to SQLite (queryable history); the full report is a
+  JSON file next to its evidence (easy to inspect, archive or hand to CI).

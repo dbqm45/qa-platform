@@ -1,30 +1,12 @@
 """The example application behaves as documented (TASK-070)."""
 
-import importlib.util
 import json
-import threading
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
-from pathlib import Path
-from types import ModuleType
 from typing import Any
 from urllib.parse import urlencode
 
 import pytest
-
-APP_PATH = Path(__file__).parents[2] / "examples/app/shop_app.py"
-
-
-def _load_app() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("shop_app", APP_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-shop_app = _load_app()
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -35,20 +17,10 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 _opener = urllib.request.build_opener(_NoRedirect)
 
 
-@pytest.fixture(scope="module")
-def server() -> Iterator[Any]:
-    server = shop_app.ShopServer(("127.0.0.1", 0))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    yield server
-    server.shutdown()
-    server.server_close()
-
-
 @pytest.fixture
-def url(server: Any) -> str:
-    server.state.reset()
-    return str(server.url)
+def url(shop_server: Any) -> str:
+    shop_server.state.reset()
+    return str(shop_server.url)
 
 
 def _request(
