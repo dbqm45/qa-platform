@@ -9,7 +9,10 @@ Test Specifications and executes them deterministically through adapters
 
 ## Quick start
 
-Install (see [Installation](#installation)), then in one terminal start the
+New here? Follow [`docs/getting-started.md`](docs/getting-started.md): installation,
+the Example Shop, your own project from scratch, secrets and troubleshooting.
+
+In short: install (see [Installation](#installation)), then in one terminal start the
 example application:
 
 ```bash

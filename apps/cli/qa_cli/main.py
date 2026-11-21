@@ -22,6 +22,7 @@ from qa_core.storage import StorageError
 from qa_execution.builtin import builtin_adapters, builtin_registry
 from qa_execution.history import ExecutionNotFoundError, list_executions, show_execution
 from qa_execution.service import TestRun, TestRunError, run_scenario
+from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.enums import (
     CompilationStatus,
     ExecutionMode,
@@ -201,19 +202,7 @@ def scenario_compile(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
             )
             for reason in compiled.reasons:
                 typer.echo(f"  {reason}")
-            cases_per_step = Counter(source_step_key(step) for step in compiled.unresolved)
-            shown: set[tuple[int | None, str]] = set()
-            for step in compiled.unresolved:
-                key = source_step_key(step)
-                if key in shown:  # outline cases repeat the same source step
-                    continue
-                shown.add(key)
-                repeated = (
-                    f" (in {cases_per_step[key]} test cases)" if cases_per_step[key] > 1 else ""
-                )
-                typer.echo(
-                    f"  line {step.line}: {step.kind.value} {step.text!r}: {step.reason}{repeated}"
-                )
+            _print_unresolved(compiled, indent="  ")
 
     counts = ", ".join(
         f"{report.count(status)} {status.value.replace('_', ' ')}" for status in CompilationStatus
@@ -281,6 +270,21 @@ def test_command(
         raise typer.Exit(EXIT_ERROR)
 
 
+def _print_unresolved(compiled: CompiledSpecification, indent: str) -> None:
+    """One line per source step that matches no step definition."""
+    cases_per_step = Counter(source_step_key(step) for step in compiled.unresolved)
+    shown: set[tuple[int | None, str]] = set()
+    for step in compiled.unresolved:
+        key = source_step_key(step)
+        if key in shown:  # outline cases repeat the same source step
+            continue
+        shown.add(key)
+        repeated = f" (in {cases_per_step[key]} test cases)" if cases_per_step[key] > 1 else ""
+        typer.echo(
+            f"{indent}line {step.line}: {step.kind.value} {step.text!r}: {step.reason}{repeated}"
+        )
+
+
 def _print_test_run(run: TestRun) -> None:
     for issue in run.errors:
         typer.echo(f"{issue.location()}: error [{issue.code}] {issue.message}")
@@ -297,6 +301,7 @@ def _print_test_run(run: TestRun) -> None:
         if spec_run.report is None:
             counts["not executed"] += 1
             typer.echo(f"  NOT RUN  {spec_run.problem}")
+            _print_unresolved(spec_run.compiled, indent=" " * 11)
             continue
         report = spec_run.report
         counts[report.execution.status.value] += 1

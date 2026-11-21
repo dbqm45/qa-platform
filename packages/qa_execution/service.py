@@ -213,5 +213,5 @@ def _locate(root: Path, config: ProjectConfig, scenario: Path) -> Path:
             if not resolved.is_relative_to(root):
                 raise TestRunError(f"{scenario} is outside the project ({root})")
             return resolved.relative_to(root)
-    looked = ", ".join(str(c) for c in candidates)
+    looked = ", ".join(dict.fromkeys(str(c.resolve()) for c in candidates))
     raise TestRunError(f"scenario file {scenario} not found (looked for: {looked})")

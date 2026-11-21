@@ -198,3 +198,17 @@ def test_execution_level_failure_is_shown_by_qa_test_and_show(project: Path) -> 
     execution_id = result.output.split("execution ", 1)[1].split(":", 1)[0]
     shown = runner.invoke(app, ["execution", "show", execution_id]).output
     assert "  environment_error: playwright could not be prepared" in shown
+
+
+def test_missing_scenario_lists_each_place_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "qa.yaml").write_text("project:\n  id: p\n  name: P\n  environments: [{name: e}]\n")
+    monkeypatch.chdir(tmp_path)  # the current directory is the project root
+    with pytest.raises(TestRunError) as info:
+        run_scenario(tmp_path / "qa.yaml", Path("x.feature"), environment="e")
+    root = tmp_path.resolve()
+    assert str(info.value) == (
+        f"scenario file x.feature not found (looked for: {root / 'x.feature'}, "
+        f"{root / 'scenarios' / 'x.feature'})"
+    )

@@ -145,6 +145,9 @@ def test_blocked_specification_is_not_executed(project: Path) -> None:
     code, output = _test("-s", "login.feature")
     assert code == 1
     assert "NOT RUN  not executed (blocked): 1 step(s) cannot be resolved" in output
+    assert (
+        "           line 9: expectation 'the user is happy and the URL is \"/dashboard\"'" in output
+    )
     assert "1 not executed" in output
     assert not (project / ".qa" / "executions").exists() or not any(
         (project / ".qa" / "executions").iterdir()
