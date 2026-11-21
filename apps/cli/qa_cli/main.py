@@ -20,6 +20,7 @@ from qa_core.scenarios.service import (
 )
 from qa_core.steps.builtin import builtin_registry
 from qa_core.storage import StorageError
+from qa_execution.registry import builtin_adapters
 from qa_schemas.enums import CompilationStatus, IssueSeverity
 
 app = typer.Typer(
@@ -168,7 +169,11 @@ def scenario_compile(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
     Exits with 1 if a file has errors or a specification is BLOCKED.
     """
     with _cli_errors():
-        report = compile_project(config, builtin_registry())
+        report = compile_project(
+            config,
+            builtin_registry(),
+            available_capabilities=builtin_adapters().available_capabilities,
+        )
         output = specifications_dir(config)
         write_specifications(report, output)
 

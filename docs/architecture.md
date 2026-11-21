@@ -96,6 +96,7 @@ All schemas are Pydantic v2 models deriving from `qa_schemas.base.SchemaModel`:
 | `qa_schemas.config` | `ProjectConfig` (root of `qa.yaml`) |
 | `qa_schemas.execution` | `TestExecution` |
 | `qa_schemas.compilation` | `CompiledSpecification`, `UnresolvedStep` (format of `.qa/specifications/*.json`) |
+| `qa_schemas.evidence` | `EvidenceReference` |
 | `qa_schemas.scenario` | `ScenarioDocument` (raw input); `ParseResult`, `ParsedFeature`, `Scenario`, `ScenarioStep`, `Examples`, `ParseIssue` |
 
 `Project` validates cross-references: repository and environment names are
@@ -368,7 +369,8 @@ test case without expectation → `needs_review`; otherwise `ready`. Only
 `ready` is executable; the runner must check `status.is_executable`.
 
 Built-in step definitions come from `qa_core.steps.builtin.builtin_registry()`,
-which is empty until TASK-031.
+which is empty until TASK-031. The CLI passes the capabilities of
+`qa_execution.registry.builtin_adapters()` as `available_capabilities`.
 
 ### ADR-014: Validation errors block the whole file
 
@@ -376,3 +378,29 @@ Mapping a finding to a single scenario by line number is unreliable (e.g. a
 Rule tag error sits before the Rule's scenarios), so a file with validation
 errors produces no specifications at all. The fix is always reported by
 `qa scenario validate`, and the rule is simple to explain.
+
+## Adapters (TASK-029, TASK-030)
+
+`qa_execution.adapters.TestAdapter` is the adapter contract and
+`qa_execution.registry.AdapterRegistry` selects adapters by capability.
+Author-facing description: [`adapters.md`](adapters.md).
+
+### ADR-015: Adapters provide resources; the runner executes steps
+
+The backlog sketched `TestAdapter.execute(test_case)`. That only works when a
+test case uses a single adapter; in FULL mode one test case mixes browser and
+HTTP steps. Instead:
+
+- adapters manage a resource and its lifecycle (`prepare`, per-test-case hooks,
+  `collect_evidence`, `cleanup`) and expose it via `resource`;
+- the runner (TASK-035) executes steps in order, and each step implementation
+  obtains the resource for its capability.
+
+Results of all adapters are naturally part of the same test case, and the
+engine depends on no testing framework.
+
+### ADR-016: Synchronous API
+
+Playwright and HTTPX both have complete synchronous APIs, and steps run
+strictly in order. Async would add complexity to adapters, steps and tests
+without a benefit for the local runner.

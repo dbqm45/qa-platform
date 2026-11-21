@@ -46,9 +46,11 @@
 | TASK-023 | Done |
 | TASK-024 | Done |
 | TASK-025 | Done — registry core (registration, conflicts, resolution); step categories and implementations in TASK-031 |
-| TASK-026 | Done — UNSUPPORTED is produced once adapters exist (TASK-030) |
+| TASK-026 | Done |
 | TASK-027 | Done |
 | TASK-028 | Done — coverage map in tests/unit/test_compilation_pipeline.py |
+| TASK-029 | Done — adapters provide resources, runner executes steps (ADR-015) |
+| TASK-030 | Done |
 
 ---
 

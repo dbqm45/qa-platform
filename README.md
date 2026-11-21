@@ -153,6 +153,11 @@ Exit code `1` if there is any error; warnings alone exit with `0`.
 
 How step text is linked to implementations: [`docs/steps.md`](docs/steps.md).
 
+## Adapters
+
+Adapters provide browsers, HTTP clients and other resources to steps:
+[`docs/adapters.md`](docs/adapters.md).
+
 ## Configuration
 
 Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).

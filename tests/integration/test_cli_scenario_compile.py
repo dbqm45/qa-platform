@@ -10,6 +10,8 @@ from typer.testing import CliRunner
 from qa_cli import main
 from qa_cli.main import app
 from qa_core.steps.registry import StepRegistry
+from qa_execution.adapters import ExecutionContext, TestAdapter
+from qa_execution.registry import AdapterRegistry
 from qa_schemas.compilation import CompiledSpecification
 from qa_schemas.enums import StepKind
 
@@ -67,9 +69,38 @@ def _saved(project: Path) -> dict[str, CompiledSpecification]:
     }
 
 
+class _FakeBrowser(TestAdapter):
+    name = "fake-browser"
+    capabilities = frozenset({"browser"})
+
+    def prepare(self, context: ExecutionContext) -> None: ...
+
+    def cleanup(self) -> None: ...
+
+    @property
+    def resource(self) -> Any:
+        return None
+
+
 @pytest.fixture
 def with_login_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Login step definitions plus an adapter that provides their capability."""
     monkeypatch.setattr(main, "builtin_registry", _login_registry)
+    monkeypatch.setattr(main, "builtin_adapters", lambda: AdapterRegistry([_FakeBrowser]))
+
+
+def test_steps_without_adapter_are_unsupported(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "builtin_registry", _login_registry)
+    _write(project, "login.feature", LOGIN)
+
+    code, output = _compile(project)
+
+    assert code == 0  # not blocked: the scenario is fine, the platform lacks an adapter
+    assert "UNSUPPORTED  login.successful-login" in output
+    assert "no adapter provides the required capabilities: browser" in output
+    assert not _saved(project)["login.successful-login"].status.is_executable
 
 
 # --- Without step definitions (current built-in registry is empty) -----------
