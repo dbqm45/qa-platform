@@ -1,0 +1,48 @@
+# Quality gate: lint, types, all tests with a real browser, dependency audit.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Types
+        run: uv run mypy
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+      - name: Tests
+        env:
+          QA_TEST_REQUIRE_BROWSER: "1" # fail, not skip, if the browser cannot start
+        run: uv run pytest --cov
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Export locked dependencies
+        run: uv export --locked --no-hashes --no-emit-project --output-file requirements.txt
+      - name: Audit for known vulnerabilities
+        run: uvx pip-audit --requirement requirements.txt --progress-spinner off

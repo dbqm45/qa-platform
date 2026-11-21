@@ -76,7 +76,9 @@ def browser_config() -> dict[str, Any]:
     """``adapters.playwright`` settings that work on this machine, or skip.
 
     Uses ``QA_TEST_BROWSER_EXECUTABLE`` or a pre-installed Chromium when present,
-    otherwise the browser installed by ``playwright install``.
+    otherwise the browser installed by ``playwright install``. With
+    ``QA_TEST_REQUIRE_BROWSER=1`` (set in CI) a missing browser fails the tests
+    instead of skipping them, so browser tests cannot silently stop running.
     """
     from playwright.sync_api import Error, sync_playwright
 
@@ -88,10 +90,13 @@ def browser_config() -> dict[str, Any]:
         try:
             playwright.chromium.launch(executable_path=executable).close()
         except Error as exc:
-            pytest.skip(
+            reason = (
                 f"no launchable Chromium ({str(exc).splitlines()[0]}); "
                 "run `uv run playwright install chromium`"
             )
+            if os.environ.get("QA_TEST_REQUIRE_BROWSER") == "1":
+                pytest.fail(reason, pytrace=False)
+            pytest.skip(reason)
     return config
 
 

@@ -68,7 +68,7 @@ One P0 has a part deferred explicitly: mocked dependencies in FE mode
 | Paths | evidence paths must be relative without `..`; specification ids follow a strict pattern before becoming file names; scenario files outside the project are rejected |
 | SQL | parameters only; the one f-string inserts a constant column list |
 | Application under test | the platform only reads repository locations from `qa.yaml`, never writes there; the Example Shop listens on `127.0.0.1` by default |
-| Dependency vulnerabilities | **not checked in this review.** The scan tool could not run in the review environment. Run `uvx pip-audit` (or GitHub Dependabot) before relying on the MVP |
+| Dependency vulnerabilities | not checked in the review environment (the scan tool could not run there); the CI `audit` job now runs `pip-audit` on `uv.lock` for every push |
 
 Known security limitations are listed below.
 
@@ -83,8 +83,8 @@ Known security limitations are listed below.
   `tests/integration/test_platform_workflows.py`. The full vertical slice (all
   example features, fe/be/full, run twice) is
   `tests/integration/test_vertical_slice.py`.
-- Browser tests are skipped, not failed, when no browser can be launched. CI
-  must provide a browser, or those tests silently do not run.
+- Browser tests are skipped when no browser can be launched locally; CI sets
+  `QA_TEST_REQUIRE_BROWSER=1`, which turns that skip into a failure.
 
 ## CLI usability
 
@@ -134,7 +134,7 @@ Security:
   their specifications; only `${NAME}` references are protected.
 - Playwright traces are not redacted (off by default). Screenshots show
   whatever the page shows.
-- Dependency vulnerabilities were not scanned (see above).
+- Dependency vulnerabilities are scanned in CI only (see above).
 
 ## Deferred and next
 
@@ -143,9 +143,9 @@ Deferred explicitly from the MVP:
 - Markdown scenarios (ADR-010).
 
 Recommended next, in order:
-1. Run a dependency vulnerability scan and add a CI workflow (lint, types,
-   tests with a browser). The CI part is post-MVP TASK-128/129, but it guards
-   everything else.
+1. ~~Run a dependency vulnerability scan and add a CI workflow (lint, types,
+   tests with a browser).~~ Done: `.github/workflows/ci.yml` (part of
+   post-MVP TASK-128/129).
 2. TASK-065 (CLI error messages, `--version`) and TASK-015 (`qa project show`).
 3. TASK-060 (JSON report beyond `results.json`) and TASK-064 (rerun failed).
 4. TASK-056 (test data isolation), then mocked dependencies (completes

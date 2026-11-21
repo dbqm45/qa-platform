@@ -81,7 +81,8 @@ uv run playwright install chromium
 
 Alternatively point `adapters.playwright.executable_path` in `qa.yaml` to an
 existing Chromium. Browser integration tests are skipped when no browser can
-be launched (set `QA_TEST_BROWSER_EXECUTABLE` to use a specific binary).
+be launched (set `QA_TEST_BROWSER_EXECUTABLE` to use a specific binary, or
+`QA_TEST_REQUIRE_BROWSER=1` to make them fail instead, as CI does).
 
 ## Managing dependencies
 
@@ -114,6 +115,14 @@ Run everything before committing:
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
 ```
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- **checks**: the commands above, then all tests with an installed Chromium and
+  `QA_TEST_REQUIRE_BROWSER=1`, so browser tests fail instead of being skipped.
+- **audit**: `pip-audit` on the exact versions from `uv.lock`.
 
 ## Tests
 
