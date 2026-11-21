@@ -103,6 +103,7 @@ All tools are configured in `pyproject.toml`.
 | Verify formatting | `uv run ruff format --check .` |
 | Type check (strict) | `uv run mypy` |
 | Tests | `uv run pytest` |
+| Tests with coverage | `uv run pytest --cov` |
 
 Run everything before committing:
 

@@ -24,6 +24,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "types-pyyaml>=6.0",
+    "pytest-cov>=6",
 ]
 
 [build-system]
@@ -88,3 +89,14 @@ xfail_strict = true
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
+# --- Coverage (`uv run pytest --cov`) ---------------------------------------
+[tool.coverage.run]
+source = ["apps/cli", "packages"]
+# Playwright's sync API switches greenlets; without this, code run after a
+# Playwright call is reported as not covered.
+concurrency = ["thread", "greenlet"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

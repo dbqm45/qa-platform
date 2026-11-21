@@ -29,7 +29,7 @@ from qa_schemas.enums import (
     IssueSeverity,
     TestCategory,
 )
-from qa_schemas.results import TestResult
+from qa_schemas.results import ExecutionReport, TestResult
 
 app = typer.Typer(
     name="qa",
@@ -309,10 +309,7 @@ def _print_test_run(run: TestRun) -> None:
                         typer.echo(
                             f"            screenshot: {_display_path(evidence_dir / ref.path)}"
                         )
-        if report.failure is not None:
-            typer.echo(f"  {report.failure.classification.value}: {report.failure.message}")
-        for error in report.cleanup_errors:
-            typer.echo(f"  cleanup: {error}")
+        _print_execution_problems(report)
         typer.echo(
             f"  execution {report.execution.id}: {report.execution.status.value.upper()}  "
             f"-> {_display_path(spec_run.results_path) if spec_run.results_path else '-'}"
@@ -381,10 +378,7 @@ def execution_show(
         typer.echo("")
         for result in report.results:
             _print_result(result)
-        if report.failure is not None:
-            typer.echo(f"  {report.failure.classification.value}: {report.failure.message}")
-        for error in report.cleanup_errors:
-            typer.echo(f"  cleanup: {error}")
+        _print_execution_problems(report)
 
     typer.echo("")
     for label, path in (
@@ -393,6 +387,16 @@ def execution_show(
         ("Log", details.log_path),
     ):
         typer.echo(f"{label + ':':<9}{_display_path(path) if path else 'not available'}")
+
+
+def _print_execution_problems(report: ExecutionReport) -> None:
+    """Execution-level failure (unless every test case already shows it) and cleanup errors."""
+    failure = report.failure
+    shown = {r.failure.message for r in report.results if r.failure is not None}
+    if failure is not None and not (report.results and shown == {failure.message}):
+        typer.echo(f"  {failure.classification.value}: {failure.message}")
+    for error in report.cleanup_errors:
+        typer.echo(f"  cleanup: {error}")
 
 
 def _print_result(result: TestResult) -> None:
