@@ -176,6 +176,11 @@ Lifecycle, outcomes and failure classification: [`docs/execution.md`](docs/execu
 
 Projects are configured in `qa.yaml`; see [`docs/configuration.md`](docs/configuration.md).
 
+## Example application
+
+`examples/` contains a small application with a login page, a form and a JSON
+API to try the platform on; see [`examples/README.md`](examples/README.md).
+
 ## Roadmap
 
 The full task backlog lives in [`docs/backlog.md`](docs/backlog.md).

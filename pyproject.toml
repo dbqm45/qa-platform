@@ -42,7 +42,7 @@ packages = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["apps/cli", "packages", "tests"]
+src = ["apps/cli", "packages", "tests", "examples/app"]
 
 [tool.ruff.lint]
 select = [
@@ -63,7 +63,7 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["apps/cli", "packages", "tests"]
+files = ["apps/cli", "packages", "tests", "examples/app"]
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
 pretty = true

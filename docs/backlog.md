@@ -64,6 +64,7 @@
 | TASK-044 | Done — screenshots, traces, console errors, page URL; failed step details are in the result |
 | TASK-031 | In progress — navigation, forms and UI assertion steps done; API and authentication steps in Phase 8 |
 | TASK-033 | In progress — browser steps covered by integration tests; API steps follow with Phase 8 |
+| TASK-070 | Done |
 
 ---
 

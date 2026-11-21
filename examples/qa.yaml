@@ -15,10 +15,10 @@ project:
       url: https://example.com/org/shop-api
 
   environments:
-    - name: local
-      base_url: http://localhost:3000
+    - name: local                        # examples/app/shop_app.py
+      base_url: http://localhost:8000
       services:
-        api: http://localhost:8000
+        api: http://localhost:8000/api
     - name: staging
       base_url: https://staging.example.com
       services:
