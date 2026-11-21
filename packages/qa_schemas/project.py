@@ -72,6 +72,17 @@ class Environment(SchemaModel):
     """Requests sent before every execution, e.g. to reset test data (TASK-056)."""
     cleanup: tuple[HookRequest, ...] = ()
     """Requests sent after every execution, also when it failed."""
+    mocks: dict[Identifier, Path] = Field(default_factory=dict)
+    """Service name -> mock file (relative to the project root) that can replace it
+    with ``qa test --mock NAME`` (TASK-051)."""
+
+    @model_validator(mode="after")
+    def _mocks_replace_services(self) -> Self:
+        if unknown := sorted(set(self.mocks) - set(self.services)):
+            raise ValueError(
+                f"mocks for unknown services: {unknown}; a mock replaces an entry of services"
+            )
+        return self
 
     @model_validator(mode="after")
     def _no_plaintext_secrets(self) -> Self:

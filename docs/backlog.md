@@ -84,7 +84,7 @@
 | TASK-055 | Done — dependency configuration (real/mock) is part of TASK-051 |
 | TASK-053 | Done — FULL mode with correlated results and evidence; mocked dependencies are part of TASK-051 |
 | TASK-052 | Done — BE mode runs API scenarios without a browser |
-| TASK-051 | Done for the MVP — FE mode runs browser scenarios against real services; mocked dependencies deferred post-MVP (runner refuses `mock` plans) |
+| TASK-051 | Done — FE mode; mocked services with qa test --mock (in-process, HTTP adapter and browser), unmocked requests are dependency_error |
 | TASK-050 | Done — plans from specification, mode, category, environment and adapter capabilities; unsupported combinations rejected |
 | TASK-058 | Done — metadata in SQLite, results.json per execution, retrieval via qa execution |
 | TASK-057 | Done — qa_schemas.results (TestResult, StepResult, Failure, ExecutionReport) |

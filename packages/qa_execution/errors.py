@@ -45,6 +45,12 @@ class DependencyError(ClassifiedError):
     classification = C.DEPENDENCY_ERROR
 
 
+class RootCause:
+    """Marker for problems an adapter reports at the end of a test case that explain
+    why a step failed (a blocked request, an unmocked call). The runner reports them
+    instead of that step failure, which is kept as a note."""
+
+
 class RequirementAmbiguityError(ClassifiedError):
     classification = C.REQUIREMENT_AMBIGUITY
 

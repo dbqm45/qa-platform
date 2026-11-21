@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from qa_core.redaction import Redactor, resolve_references
+from qa_execution.mocks import MockService
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.plan import ExecutionSettings
 from qa_schemas.project import Environment
@@ -51,6 +52,8 @@ class ExecutionContext:
     builtins: dict[str, str] = field(default_factory=dict)
     """``${RUN_ID}`` always; ``${UNIQUE}`` while a test case runs (set by the runner)."""
     allow_writes: bool = False
+    mocks: Mapping[str, MockService] = field(default_factory=dict)
+    """Services answered from mock files in this execution, by service name."""
 
     @property
     def read_only(self) -> bool:

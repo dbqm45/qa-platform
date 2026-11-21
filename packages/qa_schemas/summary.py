@@ -58,6 +58,8 @@ class RunSummary(SchemaModel):
     environment: str
     ok: bool
     """True only if the file was valid and every specification ran and passed."""
+    mocked: tuple[str, ...] = ()
+    """Services answered from mock files instead of the real ones."""
     counts: dict[str, NonNegativeInt]
     """Specifications per outcome: execution statuses and ``not_executed``."""
     errors: tuple[SummaryIssue, ...] = ()

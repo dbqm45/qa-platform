@@ -111,6 +111,7 @@ def rerun_execution(
         select=select,
         rerun_of=execution.id,
         allow_writes=allow_writes,
+        mocks=report.mocked,  # the same services as in the original execution
     )
     return replace(run, warnings=tuple(warnings))
 

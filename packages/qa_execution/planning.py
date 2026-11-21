@@ -11,9 +11,11 @@ explicit mode. The mode must fit the capabilities the specification needs:
 | contract | (not implemented yet, TASK-054)   | never                                 |
 """
 
+from collections.abc import Collection
+
 from qa_execution.registry import AdapterRegistry, AdapterSelectionError
-from qa_schemas.enums import ExecutionMode, TestCategory
-from qa_schemas.plan import ExecutionPlan, ExecutionSettings
+from qa_schemas.enums import DependencyMode, ExecutionMode, TestCategory
+from qa_schemas.plan import Dependency, ExecutionPlan, ExecutionSettings
 from qa_schemas.project import Environment
 from qa_schemas.specification import TestSpecification
 
@@ -57,6 +59,7 @@ def create_plan(
     mode: ExecutionMode | None = None,
     category: TestCategory = TestCategory.FUNCTIONAL,
     execution_timeout: float | None = None,
+    mocked: Collection[str] = (),
 ) -> ExecutionPlan:
     """A validated plan, or ``PlanningError`` explaining why none is possible.
 
@@ -80,6 +83,7 @@ def create_plan(
         environment=environment.name,
         adapters=selection.names,
         settings=_settings(environment, execution_timeout),
+        dependencies=tuple(Dependency(name=n, mode=DependencyMode.MOCK) for n in sorted(mocked)),
     )
 
 

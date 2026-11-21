@@ -36,6 +36,13 @@ from qa_execution.adapters import (
 )
 from qa_execution.browser.config import BrowserConfig, EvidenceMode
 from qa_execution.errors import TestEnvironmentError
+from qa_execution.mocks import (
+    MOCK_HEADER,
+    PREFLIGHT_HEADERS,
+    MockMissError,
+    MockService,
+    encode,
+)
 from qa_execution.protection import ALLOW_HINT, SAFE_METHODS, ProtectedEnvironmentError
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.specification import TestCase
@@ -56,6 +63,8 @@ class BrowserSession:
     console_errors: list[str] = field(default_factory=list)
     blocked_requests: list[str] = field(default_factory=list)
     """Requests the read-only guard of a protected environment stopped (TASK-056)."""
+    mock_misses: list[str] = field(default_factory=list)
+    """Requests to a mocked service its mock file does not describe (TASK-051)."""
 
 
 class PlaywrightAdapter(TestAdapter):
@@ -115,6 +124,9 @@ class PlaywrightAdapter(TestAdapter):
         session = BrowserSession(page=page, config=self.config, timeout_seconds=timeout)
         if execution.read_only:
             context.route("**/*", lambda route: _read_only(route, session))
+        # Registered last, so they run first: mocked requests never reach the guard.
+        for service in execution.mocks.values():
+            _route_mock(context, service, session)
         page.on("console", lambda message: _record_console(session, message))
         page.on("pageerror", lambda error: session.console_errors.append(f"uncaught: {error}"))
         self._session = session
@@ -123,6 +135,11 @@ class PlaywrightAdapter(TestAdapter):
     def finish_test_case(self, test_case: TestCase, passed: bool) -> None:
         self._passed = passed  # the context stays open until evidence is collected
         session, execution = self._session, self._execution
+        if session is not None and session.mock_misses:
+            more = len(session.mock_misses) - 1
+            raise MockMissError(
+                session.mock_misses[0] + (f" (and {more} more)" if more > 0 else "")
+            )
         if session is not None and execution is not None and session.blocked_requests:
             blocked = ", ".join(session.blocked_requests[:3])
             more = len(session.blocked_requests) - 3
@@ -248,3 +265,29 @@ def _read_only(route: Route, session: BrowserSession) -> None:
         return
     session.blocked_requests.append(f"{request.method} {request.url.split('?', 1)[0]}")
     route.abort("blockedbyclient")
+
+
+def _route_mock(context: BrowserContext, service: MockService, session: BrowserSession) -> None:
+    # A plain function: Playwright keeps state on the matcher, a bound method of a
+    # frozen dataclass cannot take it.
+    def matches(url: str) -> bool:
+        return service.handles(url)
+
+    context.route(matches, lambda route: _mocked(route, service, session))
+
+
+def _mocked(route: Route, service: MockService, session: BrowserSession) -> None:
+    """Answer a request of the page from the service's mock file."""
+    request = route.request
+    try:
+        response = service.answer(request.method, request.url)
+    except MockMissError as error:
+        if request.method == "OPTIONS":  # CORS preflight of a mocked request
+            headers = {**PREFLIGHT_HEADERS, MOCK_HEADER: service.name}
+            route.fulfill(status=204, headers=headers)
+            return
+        session.mock_misses.append(str(error))
+        route.fulfill(status=501, body=str(error), headers={MOCK_HEADER: service.name})
+        return
+    status, headers, body = encode(service, response)
+    route.fulfill(status=status, headers=headers, body=body)

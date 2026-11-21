@@ -8,11 +8,11 @@ Results of every execution are stored in ``.qa/executions/<id>/``:
 - execution metadata (status, timestamps) is also kept in ``.qa/qa.db``.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from qa_core.config import load_config
+from qa_core.config import load_config, load_mock_definition
 from qa_core.files import write_text_atomically
 from qa_core.init import PLATFORM_DIRNAME
 from qa_core.scenarios.compilation import compile_documents
@@ -21,6 +21,8 @@ from qa_core.scenarios.sources import LocalFileSource
 from qa_core.steps.registry import StepRegistry
 from qa_core.storage import DATABASE_FILENAME, ExecutionRepository, ProjectRepository, open_database
 from qa_execution.builtin import builtin_adapters, builtin_registry
+from qa_execution.http.config import HttpConfig
+from qa_execution.mocks import MockService
 from qa_execution.planning import PlanningError, create_plan
 from qa_execution.protection import data_changing_steps, describe_refusal
 from qa_execution.registry import AdapterRegistry
@@ -66,6 +68,8 @@ class TestRun:
     runs: tuple[SpecificationRun, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = ()
     """Problems that did not stop the run (e.g. a rerun of a changed scenario)."""
+    mocked: tuple[str, ...] = ()
+    """Services answered from mock files in this run (TASK-051)."""
 
     @property
     def errors(self) -> tuple[ValidationIssue, ...]:
@@ -99,6 +103,7 @@ def run_scenario(
     adapters: AdapterRegistry | None = None,
     timeout: float | None = None,
     allow_writes: bool = False,
+    mocks: Sequence[str] = (),
 ) -> TestRun:
     """Compile ``scenario`` and execute every specification that is READY.
 
@@ -122,6 +127,7 @@ def run_scenario(
         adapters=adapters,
         timeout=timeout,
         allow_writes=allow_writes,
+        mocks=mocks,
     )
 
 
@@ -142,6 +148,7 @@ def run_file(
     select: Select | None = None,
     rerun_of: str | None = None,
     allow_writes: bool = False,
+    mocks: Sequence[str] = (),
 ) -> TestRun:
     """Compile one scenario file (relative to the project root) and execute it.
 
@@ -151,6 +158,8 @@ def run_file(
     root = config_path.resolve().parent
     steps = steps or builtin_registry()
     adapters = adapters or builtin_adapters()
+    mock_services = load_mocks(root, environment, mocks)
+    mocked = tuple(sorted(mock_services))
 
     discovery = LocalFileSource(root, []).read_file(Path(scenario))
     if discovery.problems:
@@ -169,6 +178,7 @@ def run_file(
             scenario=scenario,
             environment=environment.name,
             issues=document.issues,
+            mocked=mocked,
         )
     specifications = select(document.specifications) if select else document.specifications
 
@@ -197,6 +207,7 @@ def run_file(
                     timeout,
                     rerun_of,
                     allow_writes,
+                    mock_services,
                 )
             )
     return TestRun(
@@ -205,6 +216,7 @@ def run_file(
         environment=environment.name,
         issues=document.issues,
         runs=tuple(runs),
+        mocked=mocked,
     )
 
 
@@ -223,14 +235,18 @@ def _run_one(
     timeout: float | None,
     rerun_of: str | None = None,
     allow_writes: bool = False,
+    mocks: Mapping[str, MockService] | None = None,
 ) -> SpecificationRun:
+    mocks = mocks or {}
     if not compiled.status.is_executable:
         reasons = "; ".join(compiled.reasons) or compiled.status.value
         return SpecificationRun(
             compiled, problem=f"not executed ({compiled.status.value}): {reasons}"
         )
     if environment.protected and not allow_writes:
-        writes = data_changing_steps(compiled.specification)
+        writes = data_changing_steps(
+            compiled.specification, api_mocked=_api_service(config) in mocks
+        )
         if writes:
             refusal = describe_refusal(environment.name, writes)
             return SpecificationRun(compiled, problem=f"not executed: {refusal}")
@@ -242,6 +258,7 @@ def _run_one(
             mode=mode,
             category=category,
             execution_timeout=timeout,
+            mocked=tuple(mocks),
         )
         report = runner.run(
             ExecutionRequest(
@@ -251,6 +268,7 @@ def _run_one(
                 environment,
                 rerun_of=rerun_of,
                 allow_writes=allow_writes,
+                mocks=mocks,
             )
         )
     except (PlanningError, NotExecutableError) as error:
@@ -296,3 +314,41 @@ def _locate(root: Path, config: ProjectConfig, scenario: Path) -> Path:
             return resolved.relative_to(root)
     looked = ", ".join(dict.fromkeys(str(c.resolve()) for c in candidates))
     raise TestRunError(f"scenario file {scenario} not found (looked for: {looked})")
+
+
+def load_mocks(
+    root: Path, environment: Environment, names: Sequence[str]
+) -> dict[str, MockService]:
+    """The mock definitions for ``--mock`` names, checked against the environment.
+
+    Raises:
+        TestRunError: the environment has no mock for a name, or its file is
+            outside the project.
+        ConfigError: a mock file is missing or invalid.
+    """
+    services: dict[str, MockService] = {}
+    for name in dict.fromkeys(names):
+        file = environment.mocks.get(name)
+        if file is None:
+            known = ", ".join(sorted(environment.mocks)) or "none"
+            raise TestRunError(
+                f"environment {environment.name!r} has no mock for {name!r} (mocks: {known}); "
+                f"add it under mocks: in qa.yaml, e.g. {name}: mocks/{name}.yaml"
+            )
+        path = (root / file).resolve()
+        if not path.is_relative_to(root):
+            raise TestRunError(f"mock file {file} for {name!r} is outside the project ({root})")
+        services[name] = MockService(
+            name=name,
+            base_url=str(environment.services[name]).rstrip("/"),
+            definition=load_mock_definition(path),
+        )
+    return services
+
+
+def _api_service(config: ProjectConfig) -> str:
+    """The service API steps send relative paths to (``adapters.httpx.service``)."""
+    try:
+        return HttpConfig.model_validate(dict(config.adapters.get("httpx", {}))).service
+    except ValueError:
+        return HttpConfig().service  # the adapter reports the invalid configuration

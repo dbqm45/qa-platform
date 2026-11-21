@@ -119,6 +119,65 @@ its failure, and where the report, `results.json` and log are. A unique prefix
 of the id is enough; an unknown or ambiguous id exits with `1`. An execution
 interrupted before it finished has no `results.json`; `show` says so.
 
+### Mocked services
+
+A service of an environment can be replaced by a mock file for one run:
+
+```yaml
+environments:
+  - name: local
+    base_url: http://localhost:3000
+    services:
+      api: https://api.example.com/v1
+    mocks:
+      api: mocks/api.yaml        # relative to the project root
+```
+
+```yaml
+# mocks/api.yaml
+version: 1
+responses:
+  - request: GET /orders         # METHOD /path below the service URL; query ignored
+    json: [{"product": "apple", "quantity": 3}]
+  - request: POST /orders
+    status: 201
+    json: {"id": 99}
+  - request: GET /health
+    body: ok                     # text instead of json
+    headers: {Content-Type: text/plain}
+```
+
+```bash
+qa test --scenario orders.feature --mock api
+```
+
+- Requests to the mocked service's URL are answered from the file, in
+  process: by the HTTP adapter for API steps, and by the browser for the
+  page's own requests (`fetch`, XHR, scripts). Nothing reaches the real
+  service; other URLs are not affected.
+- A request the file does not describe is a `dependency_error` naming it
+  (`mock 'api' has no response for GET /unknown (it knows: GET /orders, ...)`),
+  never an invented response. In the browser this is reported even if a later
+  step failed because of it (that failure is kept as a note).
+- Mocked responses carry the header `x-qa-mock: <service>`, so `http.json`
+  shows which answers were mocked. For pages on another origin they allow CORS
+  (`access-control-allow-origin: *` unless the file sets it), and a browser's
+  CORS preflight (`OPTIONS`) is answered automatically.
+- The plan records the service as `dependencies: [{name: api, mode: mock}]`;
+  `results.json` (`mocked`), `qa execution show` (`Mocked`), the summary line
+  (`on local (mocked: api)`) and the [JSON summary](#json-summary-for-ci) say
+  which services were mocked. `qa rerun` mocks the same services again.
+- Requests to a mock change no data, so they are allowed in a
+  [protected environment](#protected-environments); setup and cleanup
+  requests to a mocked service are skipped (logged as `hook-skipped`).
+- Only requests the test or the browser sends can be mocked. Calls the
+  application makes from its own servers (e.g. a server-rendered page that
+  loads orders from the API) still go to the real service: changing how the
+  application under test is wired is outside the platform.
+- Errors: an unknown `--mock` name (`environment 'local' has no mock for
+  'payments' (mocks: api)`), a missing or invalid file (with the field, as for
+  `qa.yaml`), or a file outside the project stop the run with exit code `1`.
+
 ### Setup and cleanup requests
 
 ```yaml
@@ -265,9 +324,8 @@ In `full` mode one test case uses both adapters: steps run in order against
 the browser and the API, the result lists all of them, and the test case's
 evidence folder holds both `page.json` (and screenshots) and `http.json`.
 Example: `examples/scenarios/orders.feature` places an order through the API
-and checks it on the dashboard. Mocked dependencies are not implemented yet; all dependencies are real, and
-the runner refuses a plan that marks a dependency as `mock` instead of quietly
-using the real service. Only the `functional`
+and checks it on the dashboard. Services are real unless mocked with
+`--mock` (see [Mocked services](#mocked-services)). Only the `functional`
 category is supported so far.
 
 The Local Runner executes a compiled specification in the current process.

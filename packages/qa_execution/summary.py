@@ -20,6 +20,7 @@ def summarize(run: TestRun, root: Path) -> RunSummary:
         scenario=str(run.scenario),
         environment=run.environment,
         ok=run.ok,
+        mocked=run.mocked,
         counts=dict(sorted(counts.items())),
         errors=tuple(
             SummaryIssue(location=i.location(), code=i.code, message=i.message) for i in run.errors

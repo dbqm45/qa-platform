@@ -22,6 +22,7 @@ from qa_execution.adapters import ExecutionContext
 from qa_execution.errors import TestEnvironmentError
 from qa_execution.http.config import HttpConfig
 from qa_execution.log import ExecutionLog
+from qa_execution.mocks import find
 from qa_execution.protection import ALLOW_HINT, SAFE_METHODS, ProtectedEnvironmentError
 
 
@@ -41,25 +42,31 @@ def run_hooks(
     if not hooks:
         return
     environment = context.environment
-    for hook in hooks:  # the guard applies before anything is sent
-        method = hook.split(" ", 1)[0]
-        if context.read_only and method not in SAFE_METHODS:
-            raise ProtectedEnvironmentError(
-                f"{phase} {hook} was not sent: environment {environment.name!r} is protected "
-                f"(read-only); {ALLOW_HINT}"
-            )
     try:
         config = HttpConfig.model_validate(dict(context.config_for("httpx")))
     except ValidationError as exc:
         raise HookError(f"{phase}: invalid adapters.httpx configuration: {exc}") from None
     base = environment.services.get(config.service) or environment.base_url
+    root = str(base).rstrip("/") if base is not None else ""
+
+    def mocked(hook: str) -> bool:
+        target = hook.split(" ", 1)[1]
+        return find(context.mocks, root + target if target.startswith("/") else target) is not None
+
+    for hook in hooks:  # the guard applies before anything is sent
+        method = hook.split(" ", 1)[0]
+        if context.read_only and method not in SAFE_METHODS and not mocked(hook):
+            raise ProtectedEnvironmentError(
+                f"{phase} {hook} was not sent: environment {environment.name!r} is protected "
+                f"(read-only); {ALLOW_HINT}"
+            )
     try:
         headers = {name: context.resolve(value) for name, value in environment.headers.items()}
     except MissingSecretError as error:
         raise HookError(f"{phase}: {error}") from None
 
     with httpx.Client(
-        base_url=str(base).rstrip("/") if base is not None else "",
+        base_url=root,
         headers=headers,
         timeout=context.settings.step_timeout_seconds,
         verify=config.verify_tls,
@@ -67,6 +74,9 @@ def run_hooks(
     ) as client:
         for hook in hooks:
             method, target = hook.split(" ", 1)
+            if mocked(hook):  # a mock has no state to set up or clean up
+                log.event("hook-skipped", phase=phase, request=hook, reason="mocked service")
+                continue
             if target.startswith("/") and base is None:
                 raise HookError(
                     f"{phase} {hook}: the environment has neither a {config.service!r} "

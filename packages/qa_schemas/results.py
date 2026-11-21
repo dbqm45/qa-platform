@@ -89,6 +89,8 @@ class ExecutionReport(SchemaModel):
     source: SourceReference | None = None
     """The scenario the specification was compiled from, as it was at execution time.
     Absent in files written before it existed."""
+    mocked: tuple[str, ...] = ()
+    """Services answered from mock files instead of the real ones (TASK-051)."""
     results: tuple[TestResult, ...] = ()
     failure: Failure | None = None
     """Problem that affected the whole execution (e.g. an adapter could not start)."""

@@ -177,6 +177,8 @@ def project_show(config: ConfigOption = Path(CONFIG_FILENAME)) -> None:
             typer.echo(f"    setup      {hook}")
         for hook in env.cleanup:
             typer.echo(f"    cleanup    {hook}")
+        for name, file in env.mocks.items():
+            typer.echo(f"    mock       {name} = {file}")
 
     typer.echo("\nAdapters")
     for adapter in builtin_adapters().adapters:
@@ -328,6 +330,14 @@ def test_command(
         float | None,
         typer.Option(help="Limit for each execution in seconds (default 600).", min=1, max=86_400),
     ] = None,
+    mock: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--mock",
+            help="Answer this service from its mock file (environment mocks:); repeatable.",
+            metavar="SERVICE",
+        ),
+    ] = None,
     allow_writes: Annotated[
         bool,
         typer.Option(
@@ -359,6 +369,7 @@ def test_command(
             adapters=builtin_adapters(),
             timeout=timeout,
             allow_writes=allow_writes,
+            mocks=mock or [],
         )
     _print_test_run(run)
     if json_path is not None:
@@ -483,9 +494,10 @@ def _print_test_run(run: TestRun) -> None:
             typer.echo(f"  report: {_display_path(spec_run.report_path)}")
 
     summary = ", ".join(f"{count} {status}" for status, count in sorted(counts.items()))
+    mocked = f" (mocked: {', '.join(run.mocked)})" if run.mocked else ""
     typer.echo(
         f"\nRan {_plural(len(run.runs), 'specification')} from {run.scenario} "
-        f"on {run.environment}: {summary or 'nothing to run'}"
+        f"on {run.environment}{mocked}: {summary or 'nothing to run'}"
     )
 
 
@@ -539,6 +551,8 @@ def execution_show(
         typer.echo(f"Duration      {seconds:.1f}s")
 
     report = details.report
+    if report is not None and report.mocked:
+        typer.echo(f"Mocked        {', '.join(report.mocked)}")
     if report is None:
         typer.echo("\nNo results recorded (the execution may have been interrupted).")
     else:

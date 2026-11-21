@@ -77,6 +77,7 @@ fields are rejected then), not when `qa.yaml` is loaded.
 | `project.environments[].headers` | map header → text | `{}` | Default API headers; `Authorization`, `X-Api-Key`, `Cookie`, … must contain a `${NAME}` reference. |
 | `project.environments[].setup` | list of `METHOD path` | `[]` | Requests sent before every execution, e.g. `POST /reset` ([execution.md](execution.md#setup-and-cleanup-requests)). |
 | `project.environments[].cleanup` | list of `METHOD path` | `[]` | Requests sent after every execution, also when it failed. |
+| `project.environments[].mocks` | map service → file | `{}` | Mock files that can replace a service with `qa test --mock NAME` ([execution.md](execution.md#mocked-services)). Each key must be a `services` entry. |
 | `project.environments[].protected` | bool | `false` | Read-only: tests may not change data here unless `--allow-writes` is given ([execution.md](execution.md#protected-environments)). |
 
 ## Validation rules

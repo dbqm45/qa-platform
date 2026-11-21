@@ -8,6 +8,7 @@ the whole file passed through the execution's redactor.
 
 import json
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any
@@ -24,6 +25,7 @@ from qa_execution.adapters import (
 )
 from qa_execution.errors import TestEnvironmentError
 from qa_execution.http.config import HttpConfig
+from qa_execution.mocks import MockingTransport, MockService, find
 from qa_execution.protection import ALLOW_HINT, SAFE_METHODS, ProtectedEnvironmentError
 from qa_schemas.evidence import EvidenceReference
 from qa_schemas.project import SENSITIVE_HEADERS
@@ -45,11 +47,17 @@ class HttpSession:
     read_only: bool = False
     """The environment is protected: write methods are refused (TASK-056)."""
     environment: str = ""
+    mocks: Mapping[str, MockService] = field(default_factory=dict)
+    """Mocked services: their requests never reach the real service (TASK-051)."""
 
     def send(
         self, method: str, url: str, *, json_body: Any = None, raw_body: str | None = None
     ) -> httpx.Response:
-        if self.read_only and method.upper() not in SAFE_METHODS:
+        if (
+            self.read_only
+            and method.upper() not in SAFE_METHODS
+            and find(self.mocks, self._absolute(url)) is None
+        ):
             raise ProtectedEnvironmentError(
                 f"{method.upper()} {url} was not sent: environment {self.environment!r} "
                 f"is protected (read-only); {ALLOW_HINT}"
@@ -75,6 +83,11 @@ class HttpSession:
         self.last_response = response
         self._record(response, round((time.perf_counter() - started) * 1000))
         return response
+
+    def _absolute(self, url: str) -> str:
+        if url.startswith("/") and self.base_url is not None:
+            return self.base_url + url
+        return url
 
     def _record(self, response: httpx.Response, duration_ms: int) -> None:
         request = response.request
@@ -138,10 +151,13 @@ class HttpxAdapter(TestAdapter):
         service = environment.services.get(self.config.service)
         base = service or environment.base_url
         base_url = str(base).rstrip("/") if base is not None else None
+        transport: httpx.BaseTransport = httpx.HTTPTransport(verify=self.config.verify_tls)
+        if execution.mocks:
+            transport = MockingTransport(execution.mocks, transport)
         client = httpx.Client(
             base_url=base_url or "",
             timeout=execution.settings.step_timeout_seconds,
-            verify=self.config.verify_tls,
+            transport=transport,
             follow_redirects=self.config.follow_redirects,
         )
         try:
@@ -159,6 +175,7 @@ class HttpxAdapter(TestAdapter):
             headers=headers,
             read_only=execution.read_only,
             environment=environment.name,
+            mocks=execution.mocks,
         )
 
     def collect_evidence(self, test_case: TestCase) -> list[EvidenceReference]:

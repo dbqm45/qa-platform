@@ -28,10 +28,10 @@ from typing import Any, Protocol
 from qa_core.redaction import MissingSecretError, Redactor
 from qa_core.steps.registry import StepArguments, StepParameterError, StepRegistry
 from qa_execution.adapters import ExecutionContext, TestAdapter
-from qa_execution.errors import TestEnvironmentError, classify, describe
+from qa_execution.errors import RootCause, TestEnvironmentError, classify, describe
 from qa_execution.hooks import run_hooks
 from qa_execution.log import LOG_FILENAME, ExecutionLog
-from qa_execution.protection import ProtectedEnvironmentError
+from qa_execution.mocks import MockService
 from qa_execution.registry import AdapterRegistry, AdapterSelection, AdapterSelectionError
 from qa_execution.timeouts import (
     CLEANUP_SECONDS,
@@ -82,6 +82,8 @@ class ExecutionRequest:
     """Id of the execution this one repeats."""
     allow_writes: bool = False
     """Lift the read-only guard of a protected environment."""
+    mocks: Mapping[str, MockService] = field(default_factory=dict)
+    """Mock definitions for the plan's ``mock`` dependencies, by service name."""
 
 
 @dataclass
@@ -161,6 +163,7 @@ class LocalRunner:
             secret_source=self._variables,
             builtins={"RUN_ID": execution.id},
             allow_writes=request.allow_writes,
+            mocks=request.mocks,
         )
         adapters = [adapter_class() for adapter_class in selection.adapters]
         providers = {
@@ -180,6 +183,7 @@ class LocalRunner:
             category=plan.category.value,
             environment=execution.environment,
             adapters=[adapter.name for adapter in adapters],
+            mocked=sorted(request.mocks),
             step_timeout_seconds=plan.settings.step_timeout_seconds,
             timeout_seconds=plan.settings.timeout_seconds,
         )
@@ -200,6 +204,7 @@ class LocalRunner:
             report = ExecutionReport(
                 execution=self._finish(execution, _overall(results, failure)),
                 source=spec.source,
+                mocked=tuple(sorted(request.mocks)),
                 results=tuple(results),
                 failure=failure,
                 cleanup_errors=tuple(cleanup_errors),
@@ -235,11 +240,15 @@ class LocalRunner:
                 f"plan {plan.id!r} targets environment {plan.environment!r}, "
                 f"not {request.environment.name!r}"
             )
-        mocked = [d.name for d in plan.dependencies if d.mode is DependencyMode.MOCK]
-        if mocked:  # not implemented; running against the real service would mislead
+        mocked = {d.name for d in plan.dependencies if d.mode is DependencyMode.MOCK}
+        if missing := sorted(mocked - set(request.mocks)):
+            # running against the real service instead would mislead
             raise NotExecutableError(
-                f"plan {plan.id!r} mocks {', '.join(mocked)}; mocked dependencies are not "
-                "supported yet"
+                f"plan {plan.id!r} mocks {', '.join(missing)}, but no mock definition was given"
+            )
+        if extra := sorted(set(request.mocks) - mocked):
+            raise NotExecutableError(
+                f"mock definitions for {', '.join(extra)} are not part of plan {plan.id!r}"
             )
         try:
             return self._adapters.select(spec.required_capabilities, allowed=plan.adapters)
@@ -479,9 +488,18 @@ class _Run:
             try:
                 with self._limited(self._hook_limit, f"{adapter.name}.finish_test_case timed out"):
                     adapter.finish_test_case(case, passed)
-            except ProtectedEnvironmentError as error:
-                # The guard blocked a request; a step that failed afterwards failed
-                # because of that, so the guard is the cause, not the application.
+            except Exception as error:
+                if not isinstance(error, RootCause):
+                    if failure is None:
+                        status = S.ERROR
+                        failure = _failure(
+                            error, None, f"{adapter.name} could not finish the test case"
+                        )
+                    else:
+                        notes.append(f"{adapter.name}.finish_test_case: {describe(error)}")
+                    continue
+                # e.g. a blocked or unmocked request: a step that failed afterwards
+                # failed because of it, so this is the cause, not the application.
                 if failure is not None:
                     where = (
                         f"step {failure.step_index + 1}"
@@ -491,14 +509,6 @@ class _Run:
                     notes.append(f"{where} then failed: {failure.message}")
                 status = S.ERROR
                 failure = _failure(error, None, adapter.name)
-            except Exception as error:
-                if failure is None:
-                    status = S.ERROR
-                    failure = _failure(
-                        error, None, f"{adapter.name} could not finish the test case"
-                    )
-                else:
-                    notes.append(f"{adapter.name}.finish_test_case: {describe(error)}")
 
         evidence: list[EvidenceReference] = []
         for adapter in self.prepared:

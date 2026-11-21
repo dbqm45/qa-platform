@@ -122,7 +122,8 @@ TestSpecification (what to verify)          ExecutionPlan (how / where)
 ```
 
 Samples: `examples/specifications/login.spec.json` and two plans for it in
-`examples/plans/` (FULL on staging, FE locally with a mocked API). Unit tests
+`examples/plans/` (FULL on staging, FE locally with a mocked API; mocks are
+selected with `qa test --mock`, TASK-051). Unit tests
 assert the samples are byte-identical to what the models serialize, so any
 format change must update them.
 
@@ -478,6 +479,13 @@ change it waits for.
   and, with `--failed-only`, the test cases that did not pass, matched by id
   *and* name. `TestExecution.rerun_of` links the new execution to the original
   (database migration 2 adds the column).
+- Mocked services (TASK-051) are answered in process, not by a mock server:
+  `qa_execution.mocks.MockingTransport` (an `httpx` transport) for API steps
+  and Playwright request routing for the page. No ports, and `https` services
+  work the same. Adapter errors that explain a later step failure (an unmocked
+  request, a request blocked in a protected environment) derive from
+  `qa_execution.errors.RootCause`; the runner reports them instead of that
+  step failure.
 - Execution metadata goes to SQLite (queryable history); the full report is a
   JSON file next to its evidence (easy to inspect, archive or hand to CI).
 

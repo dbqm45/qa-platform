@@ -14,8 +14,9 @@ stored in a history the CLI can query. A new user can follow
 [getting-started.md](getting-started.md) from a fresh clone; that was checked
 by running every command in it.
 
-One P0 has a part deferred explicitly: mocked dependencies in FE mode
-(TASK-051, see below). The first milestone (TASK-072) has been reached.
+At review time one P0 had a part deferred explicitly: mocked dependencies in
+FE mode (TASK-051, see below); it has been done since. The first milestone
+(TASK-072) has been reached.
 
 ## P0 status
 
@@ -31,7 +32,7 @@ One P0 has a part deferred explicitly: mocked dependencies in FE mode
 | Browser (Playwright) | 039–042, 044 | Done (043 is P1 and also done) |
 | API (HTTPX) | 045–049 | Done |
 | Plans and modes | 050, 052, 053 | Done |
-| FE mode | 051 | **Done for the MVP; mocked API dependencies deferred.** FE runs browser scenarios against real services. Nothing in `qa.yaml` or the CLI can request a mock, and the runner now refuses a plan with a `mock` dependency (found in this review: it used to be ignored silently). |
+| FE mode | 051 | **Done for the MVP; mocked API dependencies deferred** at review time (the runner was made to refuse `mock` plans, which it used to ignore silently). *Update:* mocks were added after the review (`qa test --mock`). |
 | Results, history, reports | 058, 059, 062, 063 | Done |
 | Reliability and security | 066–068 | Done (067: hard limits need POSIX and the main thread, ADR-019) |
 | Examples and validation | 070–074 | Done |
@@ -121,8 +122,8 @@ Scenarios and compilation:
 Execution:
 
 - One execution target (local, in process); no parallelism.
-- Mocked dependencies (`dependencies: mock`) are not implemented; all
-  services are real.
+- Mocks replace only requests the test or the browser sends, not calls the
+  application makes from its own servers (TASK-051, `qa test --mock`).
 - `contract` mode is not implemented (TASK-054, P1).
 - Only the `functional` test category runs.
 - Hard timeouts need POSIX signals and the main thread. On Windows, or when
@@ -141,7 +142,8 @@ Security:
 ## Deferred and next
 
 Deferred explicitly from the MVP:
-- Mocked dependencies for FE mode (part of TASK-051).
+- Mocked dependencies for FE mode (part of TASK-051); done after the review
+  with `qa test --mock`.
 - Markdown scenarios (ADR-010).
 
 Recommended next, in order:
@@ -150,7 +152,7 @@ Recommended next, in order:
    post-MVP TASK-128/129).
 2. ~~TASK-065 (CLI error messages, `--version`) and TASK-015 (`qa project show`).~~ Done.
 3. ~~TASK-060 (JSON report beyond `results.json`) and TASK-064 (rerun failed).~~ Done.
-4. ~~TASK-056 (test data isolation)~~ done; then mocked dependencies (completes
-   TASK-051).
+4. ~~TASK-056 (test data isolation), then mocked dependencies (completes
+   TASK-051).~~ Done.
 5. TASK-054 (contract mode), TASK-061 (fingerprinting), TASK-069 (safety
    policies).

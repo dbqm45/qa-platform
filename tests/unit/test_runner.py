@@ -401,7 +401,7 @@ def test_plan_with_mocked_dependency_is_rejected(tmp_path: Path, store: Recordin
     plan = _plan(compiled).model_copy(
         update={"dependencies": (Dependency(name="api", mode=DependencyMode.MOCK),)}
     )
-    with pytest.raises(NotExecutableError, match="mocks api; mocked dependencies are not"):
+    with pytest.raises(NotExecutableError, match="mocks api, but no mock definition was given"):
         _runner(tmp_path, store).run(
             ExecutionRequest("shop", compiled, plan, Environment(name="local"))
         )

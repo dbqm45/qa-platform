@@ -18,6 +18,7 @@ from pydantic_core import ErrorDetails
 
 from qa_schemas.base import PATTERN_DESCRIPTIONS
 from qa_schemas.config import ProjectConfig
+from qa_schemas.mock import MockDefinition
 
 CONFIG_FILENAME = "qa.yaml"
 
@@ -160,3 +161,30 @@ def _models_in(annotation: object) -> Iterator[type[BaseModel]]:
     if isinstance(annotation, types.UnionType) or typing.get_origin(annotation) is not None:
         for arg in typing.get_args(annotation):
             yield from _models_in(arg)
+
+
+# --- Other YAML files --------------------------------------------------------
+
+
+def load_mock_definition(path: Path) -> MockDefinition:
+    """Read and validate a mock file (TASK-051), with the same messages as ``qa.yaml``."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise ConfigError(path, ["mock file not found"]) from None
+    except (IsADirectoryError, UnicodeDecodeError, OSError) as exc:
+        raise ConfigError(path, [f"cannot read mock file: {exc}"]) from None
+    try:
+        data = yaml.load(text, Loader=_StrictLoader)
+    except yaml.MarkedYAMLError as exc:
+        raise ConfigError(path, [_describe_yaml_error(exc)]) from None
+    except yaml.YAMLError as exc:
+        raise ConfigError(path, [f"invalid YAML: {exc}"]) from None
+    if not isinstance(data, dict):
+        raise ConfigError(path, ["expected a mapping with 'responses'"])
+    try:
+        return MockDefinition.model_validate(data)
+    except ValidationError as exc:
+        raise ConfigError(
+            path, [describe_validation_error(error) for error in exc.errors()]
+        ) from None

@@ -15,7 +15,7 @@ It is a guard against accidents, not a security boundary: a read request can
 still have side effects in a badly designed application.
 """
 
-from qa_execution.errors import TestEnvironmentError
+from qa_execution.errors import RootCause, TestEnvironmentError
 from qa_schemas.specification import Step, TestSpecification
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -29,25 +29,30 @@ REQUEST_ACTIONS = frozenset({"api.send", "api.send-json"})
 ALLOW_HINT = "use --allow-writes to run it anyway"
 
 
-class ProtectedEnvironmentError(TestEnvironmentError):
+class ProtectedEnvironmentError(TestEnvironmentError, RootCause):
     """Something tried to change data in a protected environment."""
 
 
-def changes_data(step: Step) -> bool:
+def changes_data(step: Step, *, api_mocked: bool = False) -> bool:
+    """``api_mocked``: API requests go to a mock (relative paths) and change nothing."""
     if step.action in DATA_ENTRY_ACTIONS:
         return True
     if step.action in REQUEST_ACTIONS:
+        if api_mocked and str(step.parameters.get("url", "")).startswith("/"):
+            return False
         method = str(step.parameters.get("method", "")).upper()
         return method not in SAFE_METHODS
     return False
 
 
-def data_changing_steps(specification: TestSpecification) -> list[Step]:
+def data_changing_steps(
+    specification: TestSpecification, *, api_mocked: bool = False
+) -> list[Step]:
     """Distinct source steps that would change data, in order (outline rows repeat them)."""
     found: dict[tuple[int | None, str], Step] = {}
     for case in specification.test_cases:
         for step in case.steps:
-            if changes_data(step):
+            if changes_data(step, api_mocked=api_mocked):
                 found.setdefault((step.line, step.text), step)
     return list(found.values())
 
